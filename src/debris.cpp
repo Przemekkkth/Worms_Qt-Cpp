@@ -41,8 +41,9 @@ void Debris::Draw(GameScene *scene, float fOffsetX, float fOffsetY)
     QPoint p = QPoint(px-fOffsetX, py-fOffsetY);
     pItem->setPos(p.x()*SCREEN::CELL_SIZE.width(), p.y()*SCREEN::CELL_SIZE.height());
     //pItem->setPos(px, py);
-    pItem->setRotation(std::atan2(vy, vx));
-    pItem->setScale(radius);
+    pItem->setRotation(std::atan2(vy, vx)* (180.0f / 3.14159f));
+
+    pItem->setScale(radius*SCREEN::CELL_SIZE.width()/2.0f);
     pItem->setPen(QPen(QColor(Qt::darkGreen)));
     pItem->setBrush(QBrush(QColor(Qt::darkGreen)));
     scene->addItem(pItem);
