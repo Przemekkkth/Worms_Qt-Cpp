@@ -35,6 +35,34 @@ void GameScene::setMousePosition(QPoint newPos)
     }
 }
 
+void GameScene::setCamera()
+{
+    float fElapsedTime = 1.0f/m_loopSpeed;
+    // Mouse Edge Map Scroll
+    float fMapScrollSpeed = 100.0f;
+    if (m_mousePosition.x() < 10) fCameraPosX -= fMapScrollSpeed * fElapsedTime;
+    if (m_mousePosition.x() > SCREEN::PHYSICAL_SIZE.width() - 10) fCameraPosX += fMapScrollSpeed * fElapsedTime;
+    if (m_mousePosition.y() < 10) fCameraPosY -= fMapScrollSpeed * fElapsedTime;
+    if (m_mousePosition.y() > SCREEN::PHYSICAL_SIZE.height() - 10) fCameraPosY += fMapScrollSpeed * fElapsedTime;
+    // Clamp map boundaries
+    if (fCameraPosX < 0)
+    {
+        fCameraPosX = 0;
+    }
+    if (fCameraPosX >= nMapWidth - SCREEN::LOGICAL_SIZE.width())
+    {
+        fCameraPosX = nMapWidth - SCREEN::LOGICAL_SIZE.width();
+    }
+    if (fCameraPosY < 0)
+    {
+        fCameraPosY = 0;
+    }
+    if (fCameraPosY >= nMapHeight - SCREEN::LOGICAL_SIZE.height())
+    {
+        fCameraPosY = nMapHeight - SCREEN::LOGICAL_SIZE.height();
+    }
+}
+
 void GameScene::loop()
 {
     m_deltaTime = m_elapsedTimer.elapsed();
@@ -47,37 +75,11 @@ void GameScene::loop()
 
         handlePlayerInput();
 
-        float fElapsedTime = 1.0f/m_loopSpeed;
+
         clear();
         m_image.fill(Qt::yellow);
-        // Mouse Edge Map Scroll
-        float fMapScrollSpeed = 400.0f;
-        if (m_mousePosition.x() < 5) fCameraPosX -= fMapScrollSpeed * fElapsedTime;
-        if (m_mousePosition.x() > SCREEN::PHYSICAL_SIZE.width() - 5) fCameraPosX += fMapScrollSpeed * fElapsedTime;
-        if (m_mousePosition.y() < 5) fCameraPosY -= fMapScrollSpeed * fElapsedTime;
-        if (m_mousePosition.y() > SCREEN::PHYSICAL_SIZE.height() - 5) fCameraPosY += fMapScrollSpeed * fElapsedTime;
+        setCamera();
 
-//        qDebug() << m_mousePosition;
-////		// Clamp map boundaries
-        if (fCameraPosX < 0)
-        {
-            fCameraPosX = 0;
-        }
-        if (fCameraPosX >= nMapWidth - SCREEN::LOGICAL_SIZE.width())
-        {
-            fCameraPosX = nMapWidth - SCREEN::LOGICAL_SIZE.width();
-        }
-        if (fCameraPosY < 0)
-        {
-            fCameraPosY = 0;
-        }
-        if (fCameraPosY >= nMapHeight - 2*SCREEN::LOGICAL_SIZE.height())
-        {
-            fCameraPosY = nMapHeight - 2*SCREEN::LOGICAL_SIZE.height();
-        }
-//        fCameraPosY = 400;
-//        qDebug() << "fCameraX " << fCameraPosX << " fCameraY " << fCameraPosY;
-        fCameraPosY = 150;
         drawLandscape();
 
 
