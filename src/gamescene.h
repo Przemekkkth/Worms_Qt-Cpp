@@ -41,6 +41,7 @@ private:
     void drawLandscape();
     QPoint mousePosition() const;    
     void boom(float fWorldX, float fWorldY, float fRadius);
+    void updatePhysics();
     //Terrain size
     int nMapWidth  = 1024;
     int nMapHeight = 512;
@@ -58,7 +59,7 @@ private:
     KeyStatus* m_keys[256];
     MouseStatus* m_mouse;
 
-    const int FPS = 60;
+    const int FPS = 30;
     QTimer m_timer;
     QElapsedTimer m_elapsedTimer;
     float m_deltaTime = 0.0f, m_loopTime = 0.0f;

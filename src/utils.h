@@ -112,4 +112,11 @@ namespace SCREEN
     static constexpr const QSize PHYSICAL_SIZE = QSize(LOGICAL_SIZE.width()  * CELL_SIZE.width(),
                                                        LOGICAL_SIZE.height() * CELL_SIZE.height());
 }
+
+namespace LAYER
+{
+    static constexpr const int BG = -10;
+    static constexpr const int ENTITY = 10;
+}
+
 #endif // UTILS_H

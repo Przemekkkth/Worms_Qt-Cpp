@@ -1,5 +1,10 @@
 #include "debris.h"
+#include "utils.h"
+#include "gamescene.h"
 #include <cmath>
+#include <QPolygon>
+#include <QGraphicsPolygonItem>
+#include <QPen>
 
 std::vector<std::pair<float, float>> DefineDebris();
 
@@ -21,7 +26,26 @@ Debris::~Debris()
 
 void Debris::Draw(GameScene *scene, float fOffsetX, float fOffsetY)
 {
-
+    //engine->DrawWireFrameModel(vecModel, px - fOffsetX, py - fOffsetY, atan2f(vy, vx), radius, FG_DARK_GREEN);
+    //QPolygon polygon;
+    QList<QPoint> points;
+    for(auto val : vecModel)
+    {
+        QPoint p = QPoint(val.first*SCREEN::CELL_SIZE.width(),
+                          val.second*SCREEN::CELL_SIZE.height());
+        points.append(p);
+    }
+    QPolygon polygon = QPolygon(points);
+    QGraphicsPolygonItem *pItem = new QGraphicsPolygonItem;
+    pItem->setPolygon(polygon);
+    QPoint p = QPoint(px-fOffsetX, py-fOffsetY);
+    pItem->setPos(p.x()*SCREEN::CELL_SIZE.width(), p.y()*SCREEN::CELL_SIZE.height());
+    //pItem->setPos(px, py);
+    pItem->setRotation(std::atan2(vy, vx));
+    pItem->setScale(radius);
+    pItem->setPen(QPen(QColor(Qt::darkGreen)));
+    pItem->setBrush(QBrush(QColor(Qt::darkGreen)));
+    scene->addItem(pItem);
 }
 
 int Debris::BounceDeathAction()

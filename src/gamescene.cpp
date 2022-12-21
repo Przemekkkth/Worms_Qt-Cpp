@@ -42,7 +42,7 @@ void GameScene::setCamera()
 {
     float fElapsedTime = 1.0f/m_loopSpeed;
     // Mouse Edge Map Scroll
-    float fMapScrollSpeed = 100.0f;
+    float fMapScrollSpeed = 400.0f;
     if (m_mousePosition.x() < 10) fCameraPosX -= fMapScrollSpeed * fElapsedTime;
     if (m_mousePosition.x() > SCREEN::PHYSICAL_SIZE.width() - 10) fCameraPosX += fMapScrollSpeed * fElapsedTime;
     if (m_mousePosition.y() < 10) fCameraPosY -= fMapScrollSpeed * fElapsedTime;
@@ -82,9 +82,15 @@ void GameScene::loop()
         clear();
         m_image.fill(Qt::yellow);
         setCamera();
-
+        updatePhysics();
         drawLandscape();
-
+        // Draw Objects
+        for (auto &p : listObjects)
+        {
+            p->Draw(this, fCameraPosX, fCameraPosY);
+            //(m_mousePosition.x()/SCREEN::CELL_SIZE.width()) + fCameraPosX, (m_mousePosition.y()/SCREEN::CELL_SIZE.height()) + fCameraPosY
+            //p->Draw()
+        }
 
         resetStatus();
     }
@@ -146,6 +152,115 @@ void GameScene::boom(float fWorldX, float fWorldY, float fRadius)
     // Launch debris proportional to blast size
     for (int i = 0; i < (int)fRadius; i++)
         listObjects.push_back(std::unique_ptr<Debris>(new Debris(fWorldX, fWorldY)));
+}
+
+void GameScene::updatePhysics()
+{
+    // Do 10 physics iterations per frame - this allows smaller physics steps
+    // giving rise to more accurate and controllable calculations
+    float fElapsedTime = 1.0f/m_loopSpeed;
+    for (int z = 0; z < 10; z++)
+    {
+        // Update physics of all physical objects
+        for (auto &p : listObjects)
+        {
+            // Apply Gravity
+            p->ay += 2.0f;
+
+            // Update Velocity
+            p->vx += p->ax * fElapsedTime;
+            p->vy += p->ay * fElapsedTime;
+
+            // Update Position
+            float fPotentialX = p->px + p->vx * fElapsedTime;
+            float fPotentialY = p->py + p->vy * fElapsedTime;
+
+            // Reset Acceleration
+            p->ax = 0.0f;
+            p->ay = 0.0f;
+            p->bStable = false;
+
+            // Collision Check With Map
+            float fAngle = atan2f(p->vy, p->vx);
+            float fResponseX = 0;
+            float fResponseY = 0;
+            bool bCollision = false;
+
+            // Iterate through semicircle of objects radius rotated to direction of travel
+            for (float r = fAngle - 3.14159f / 2.0f; r < fAngle + 3.14159f / 2.0f; r += 3.14159f / 8.0f)
+            {
+                // Calculate test point on circumference of circle
+                float fTestPosX = (p->radius) * cosf(r) + fPotentialX;
+                float fTestPosY = (p->radius) * sinf(r) + fPotentialY;
+
+                // Constrain to test within map boundary
+                if (fTestPosX >= nMapWidth) fTestPosX = nMapWidth - 1;
+                if (fTestPosY >= nMapHeight) fTestPosY = nMapHeight - 1;
+                if (fTestPosX < 0) fTestPosX = 0;
+                if (fTestPosY < 0) fTestPosY = 0;
+
+                // Test if any points on semicircle intersect with terrain
+                if (map[(int)fTestPosY * nMapWidth + (int)fTestPosX] != 0)
+                {
+                    // Accumulate collision points to give an escape response vector
+                    // Effectively, normal to the areas of contact
+                    fResponseX += fPotentialX - fTestPosX;
+                    fResponseY += fPotentialY - fTestPosY;
+                    bCollision = true;
+                }
+            }
+
+            // Calculate magnitudes of response and velocity vectors
+            float fMagVelocity = sqrtf(p->vx*p->vx + p->vy*p->vy);
+            float fMagResponse = sqrtf(fResponseX*fResponseX + fResponseY*fResponseY);
+
+            // Collision occurred
+            if (bCollision)
+            {
+                // Force object to be stable, this stops the object penetrating the terrain
+                p->bStable = true;
+
+                // Calculate reflection vector of objects velocity vector, using response vector as normal
+                float dot = p->vx * (fResponseX / fMagResponse) + p->vy * (fResponseY / fMagResponse);
+
+                // Use friction coefficient to dampen response (approximating energy loss)
+                p->vx = p->fFriction * (-2.0f * dot * (fResponseX / fMagResponse) + p->vx);
+                p->vy = p->fFriction * (-2.0f * dot * (fResponseY / fMagResponse) + p->vy);
+
+                //Some objects will "die" after several bounces
+                if (p->nBounceBeforeDeath > 0)
+                {
+                    p->nBounceBeforeDeath--;
+                    p->bDead = p->nBounceBeforeDeath == 0;
+
+                    // If object died, work out what to do next
+                    if (p->bDead)
+                    {
+                        // Action upon object death
+                        // = 0 Nothing
+                        // > 0 Explosion
+                        int nResponse = p->BounceDeathAction();
+                        if (nResponse > 0)
+                            boom(p->px, p->py, nResponse);
+                    }
+                }
+
+            }
+            else
+            {
+                // No collision so update objects position
+                p->px = fPotentialX;
+                p->py = fPotentialY;
+            }
+
+            // Turn off movement when tiny
+            if (fMagVelocity < 0.1f) p->bStable = true;
+        }
+
+        // Remove dead objects from the list, so they are not processed further. As the object
+        // is a unique pointer, it will go out of scope too, deleting the object automatically. Nice :-)
+        listObjects.remove_if([](std::unique_ptr<PhysicsObject> &o) {return o->bDead; });
+    }
 }
 
 void GameScene::CreateMap()
@@ -225,7 +340,6 @@ void GameScene::drawLandscape()
                 break;
             case 1:
                 m_image.setPixelColor(x, y, QColor(Qt::darkGreen));
-                //qDebug() << "Jest 1";
                 break;
             }
         }
@@ -233,7 +347,7 @@ void GameScene::drawLandscape()
 
     QGraphicsPixmapItem* pItem = new QGraphicsPixmapItem();
     pItem->setPixmap(QPixmap::fromImage(m_image.scaled(SCREEN::PHYSICAL_SIZE)));
-    //pItem->setPixmap(QPixmap::fromImage(m_image));
+    pItem->setZValue(LAYER::BG);
     addItem(pItem);
 }
 
