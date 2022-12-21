@@ -1,5 +1,12 @@
 #include "dummy.h"
+#include "utils.h"
+#include "gamescene.h"
+#include <QColor>
+#include <QPolygon>
+#include <QGraphicsPolygonItem>
 #include <cmath>
+#include <QList>
+#include <QPoint>
 
 std::vector<std::pair<float, float>> DefineDummy();
 
@@ -16,7 +23,26 @@ Dummy::~Dummy()
 
 void Dummy::Draw(GameScene *scene, float fOffsetX, float fOffsetY)
 {
+    //engine->DrawWireFrameModel(vecModel, px - fOffsetX, py - fOffsetY, atan2f(vy, vx), radius, FG_WHITE);
+    //QPolygon polygon;
+    QList<QPoint> points;
+    for(auto val : vecModel)
+    {
+        QPoint p = QPoint(val.first*SCREEN::CELL_SIZE.width(),
+                          val.second*SCREEN::CELL_SIZE.height());
+        points.append(p);
+    }
+    QPolygon polygon = QPolygon(points);
+    QGraphicsPolygonItem *pItem = new QGraphicsPolygonItem;
+    pItem->setPolygon(polygon);
+    QPoint p = QPoint(px-fOffsetX, py-fOffsetY);
+    pItem->setPos(p.x()*SCREEN::CELL_SIZE.width(), p.y()*SCREEN::CELL_SIZE.height());
+    //pItem->setPos(px, py);
+    pItem->setRotation(std::atan2(vy, vx)* (180.0f / 3.14159f));
 
+    pItem->setScale(radius*SCREEN::CELL_SIZE.width()/2.0f);
+    pItem->setPen(QPen(QColor(Qt::white)));
+    scene->addItem(pItem);
 }
 
 int Dummy::BounceDeathAction()

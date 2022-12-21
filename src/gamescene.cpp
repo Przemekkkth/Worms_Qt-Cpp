@@ -7,6 +7,7 @@
 #include "utils.h"
 #include "pixmapmanager.h"
 #include "debris.h"
+#include "dummy.h"
 
 GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent), map(new unsigned char[nMapWidth * nMapHeight])
@@ -360,9 +361,11 @@ void GameScene::handlePlayerInput()
 {
     if(m_mouse->m_released)
     {
-        //qDebug() << "m_mouse->m_released " << m_mouse->m_released;
         boom((m_mousePosition.x()/SCREEN::CELL_SIZE.width()) + fCameraPosX, (m_mousePosition.y()/SCREEN::CELL_SIZE.height()) + fCameraPosY, 10.0f);
-        //boom(100.0f, 800.0f, 100.0f);
+    }
+    if(m_keys[KEYBOARD::KEY_1]->m_released)
+    {
+        listObjects.push_back(std::unique_ptr<Dummy>(new Dummy((m_mousePosition.x()/SCREEN::CELL_SIZE.width()) + fCameraPosX, (m_mousePosition.y()/SCREEN::CELL_SIZE.height()) + fCameraPosY)));
     }
 }
 
