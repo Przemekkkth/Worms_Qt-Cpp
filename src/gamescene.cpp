@@ -2,9 +2,11 @@
 #include <QKeyEvent>
 #include <QGraphicsSceneMouseEvent>
 #include <QGraphicsPixmapItem>
+#include <QGraphicsLineItem>
 #include <QDebug>
 #include "utils.h"
 #include "pixmapmanager.h"
+#include "debris.h"
 
 GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent), map(new unsigned char[nMapWidth * nMapHeight])
@@ -15,6 +17,7 @@ GameScene::GameScene(QObject *parent)
     m_image.fill(QColor(Qt::yellow));
     CreateMap();
 
+    boom(0,0,0);
     drawLandscape();
     for(int i = 0; i < 256; ++i)
     {
@@ -85,6 +88,64 @@ void GameScene::loop()
 
         resetStatus();
     }
+}
+
+void GameScene::boom(float fWorldX, float fWorldY, float fRadius)
+{
+    auto CircleBresenham = [&](int xc, int yc, int r)
+    {
+        // Taken from wikipedia
+        int x = 0;
+        int y = r;
+        int p = 3 - 2 * r;
+        if (!r) return;
+
+        auto drawline = [&](int sx, int ex, int ny)
+        {
+            for (int i = sx; i < ex; i++)
+                if (ny >= 0 && ny < nMapHeight && i >= 0 && i < nMapWidth)
+                {
+                    map[ny*nMapWidth + i] = 0;
+                }
+        };
+
+        while (y >= x)
+        {
+            // Modified to draw scan-lines instead of edges
+            drawline(xc - x, xc + x, yc - y);
+            drawline(xc - y, xc + y, yc - x);
+            drawline(xc - x, xc + x, yc + y);
+            drawline(xc - y, xc + y, yc + x);
+            if (p < 0) p += 4 * x++ + 6;
+            else p += 4 * (x++ - y--) + 10;
+        }
+    };
+
+    // Erase Terrain to form crater
+    CircleBresenham(fWorldX, fWorldY, fRadius);
+
+    // Shockwave other entities in range
+    for (auto &p : listObjects)
+    {
+        // Work out distance between explosion origin and object
+        float dx = p->px - fWorldX;
+        float dy = p->py - fWorldY;
+        float fDist = sqrt(dx*dx + dy*dy);
+        if (fDist < 0.0001f) fDist = 0.0001f;
+
+        // If within blast radius
+        if (fDist < fRadius)
+        {
+            // Set velocity proportional and away from boom origin
+            p->vx = (dx / fDist) * fRadius;
+            p->vy = (dy / fDist) * fRadius;
+            p->bStable = false;
+        }
+    }
+
+    // Launch debris proportional to blast size
+    for (int i = 0; i < (int)fRadius; i++)
+        listObjects.push_back(std::unique_ptr<Debris>(new Debris(fWorldX, fWorldY)));
 }
 
 void GameScene::CreateMap()
@@ -185,7 +246,9 @@ void GameScene::handlePlayerInput()
 {
     if(m_mouse->m_released)
     {
-        qDebug() << "m_mouse->m_released " << m_mouse->m_released;
+        //qDebug() << "m_mouse->m_released " << m_mouse->m_released;
+        boom((m_mousePosition.x()/SCREEN::CELL_SIZE.width()) + fCameraPosX, (m_mousePosition.y()/SCREEN::CELL_SIZE.height()) + fCameraPosY, 10.0f);
+        //boom(100.0f, 800.0f, 100.0f);
     }
 }
 

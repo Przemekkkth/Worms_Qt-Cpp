@@ -39,7 +39,8 @@ private:
     void CreateMap();
     void PerlinNoise1D(int nCount, float *fSeed, int nOctaves, float fBias, float *fOutput);
     void drawLandscape();
-    QPoint mousePosition() const;
+    QPoint mousePosition() const;    
+    void boom(float fWorldX, float fWorldY, float fRadius);
     //Terrain size
     int nMapWidth  = 1024;
     int nMapHeight = 512;
