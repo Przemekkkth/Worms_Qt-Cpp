@@ -9,6 +9,7 @@
 #include "debris.h"
 #include "dummy.h"
 #include "missile.h"
+#include "worm.h"
 
 GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent), map(new unsigned char[nMapWidth * nMapHeight])
@@ -371,7 +372,10 @@ void GameScene::handlePlayerInput()
     if(m_keys[KEYBOARD::KEY_2]->m_released)
     {
         listObjects.push_back(std::unique_ptr<Missile>(new Missile((m_mousePosition.x()/SCREEN::CELL_SIZE.width()) + fCameraPosX, (m_mousePosition.y()/SCREEN::CELL_SIZE.height()) + fCameraPosY)));
-
+    }
+    if(m_keys[KEYBOARD::KEY_3]->m_released)
+    {
+        listObjects.push_back(std::unique_ptr<Worm>(new Worm((m_mousePosition.x()/SCREEN::CELL_SIZE.width()) + fCameraPosX, (m_mousePosition.y()/SCREEN::CELL_SIZE.height()) + fCameraPosY)));
     }
 }
 
