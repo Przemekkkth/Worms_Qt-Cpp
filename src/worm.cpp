@@ -21,7 +21,7 @@ void Worm::Draw(GameScene *scene, float fOffsetX, float fOffsetY)
     pItem->setPixmap(m_pixmap.scaled(8*SCREEN::CELL_SIZE.width(),
                                      8*SCREEN::CELL_SIZE.height()));
     QPoint p = QPoint(px - fOffsetX - radius, py - fOffsetY - radius);
-    pItem->setPos(p.x()*SCREEN::CELL_SIZE.width(), p.y()*SCREEN::CELL_SIZE.height());
+    pItem->setPos(int(p.x()*SCREEN::CELL_SIZE.width()), int(p.y()*SCREEN::CELL_SIZE.height()));
     scene->addItem(pItem);
 }
 

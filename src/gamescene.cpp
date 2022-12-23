@@ -310,12 +310,6 @@ void GameScene::loop()
                 rItem4->setBrush(QBrush(QColor(Qt::black)));
                 rItem4->setPos(cx*SCREEN::CELL_SIZE.width(), (cy-1)*SCREEN::CELL_SIZE.height());
                 addItem(rItem4);
-//                Draw(cx, cy, PIXEL_SOLID, FG_BLACK);
-//                Draw(cx + 1, cy, PIXEL_SOLID, FG_BLACK);
-//                Draw(cx - 1, cy, PIXEL_SOLID, FG_BLACK);
-//                Draw(cx, cy + 1, PIXEL_SOLID, FG_BLACK);
-//                Draw(cx, cy - 1, PIXEL_SOLID, FG_BLACK);
-
                 // Draws an Energy Bar, indicating how much energy should the weapon be
                 // fired with
                 for (int i = 0; i < 11 * fEnergyLevel; i++)
@@ -338,7 +332,12 @@ void GameScene::loop()
         // DEBUG Feature: Indicate Game Stability
         if (bGameIsStable)
         {
-//            Fill(2, 2, 6, 6, PIXEL_SOLID, FG_RED);
+            QGraphicsRectItem* rItem = new QGraphicsRectItem();
+            rItem->setPen(QColor(Qt::red));
+            rItem->setBrush(QColor(Qt::red));
+            rItem->setPos(2*SCREEN::CELL_SIZE.width(), 2*SCREEN::CELL_SIZE.height());
+            rItem->setRect(0,0, 6*SCREEN::CELL_SIZE.width(), 6*SCREEN::CELL_SIZE.height());
+            addItem(rItem);
         }
 
         // Update State Machine
@@ -410,8 +409,8 @@ void GameScene::updatePhysics()
 {
     // Do 10 physics iterations per frame - this allows smaller physics steps
     // giving rise to more accurate and controllable calculations
-    float fElapsedTime = 1.0f/m_loopSpeed;
-    for (int z = 0; z < 10; z++)
+    float fElapsedTime = (1.0f/m_loopSpeed);
+    for (int z = 0; z < 5; z++)
     {
         // Update physics of all physical objects
         for (auto &p : listObjects)
