@@ -11,6 +11,7 @@
 
 struct KeyStatus
 {
+    bool m_pressed = false;
     bool m_held = false;
     bool m_released = false;
 };

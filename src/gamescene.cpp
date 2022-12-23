@@ -86,10 +86,11 @@ void GameScene::setCamera()
     case GS_ALLOCATE_UNITS: // Add a unit to the top of the screen
     {
         bPlayerHasControl = false;
-        Worm *worm = new Worm(32.0f, 1.0f);
+        Worm *worm = new Worm(64.0f, 1.0f);
         listObjects.push_back(std::unique_ptr<Worm>(worm));
         pObjectUnderControl = worm;
         pCameraTrackingObject = pObjectUnderControl;
+        fCameraPosY = 2000.0f;
         nNextState = GS_ALLOCATING_UNITS;
     }
         break;
@@ -135,7 +136,7 @@ void GameScene::setCamera()
         {
             if (pObjectUnderControl->bStable)
             {
-                if (m_keys[KEYBOARD::KEY_Z]->m_released) // Jump in direction of cursor
+                if (m_keys[KEYBOARD::KEY_Z]->m_pressed) // Jump in direction of cursor
                 {
                     float a = ((Worm*)pObjectUnderControl)->fShootAngle;
                     pObjectUnderControl->vx = 4.0f * cosf(a);
@@ -157,7 +158,7 @@ void GameScene::setCamera()
                     if (worm->fShootAngle > 3.14159f) worm->fShootAngle -= 3.14159f * 2.0f;
                 }
 
-                if (m_keys[KEYBOARD::KEY_SPACE]->m_held) // Start to charge weapon
+                if (m_keys[KEYBOARD::KEY_SPACE]->m_pressed) // Start to charge weapon
                 {
                     bEnergising = true;
                     bFireWeapon = false;
@@ -224,6 +225,10 @@ void GameScene::setCamera()
         fCameraPosYTarget = pCameraTrackingObject->py - SCREEN::LOGICAL_SIZE.height() / 2;
         fCameraPosX += (fCameraPosXTarget - fCameraPosX) * 5.0f * fElapsedTime;
         fCameraPosY += (fCameraPosYTarget - fCameraPosY) * 5.0f * fElapsedTime;
+    }
+    else
+    {
+        int i = 0;
     }
 
 
@@ -314,6 +319,22 @@ void GameScene::loop()
                 // fired with
                 for (int i = 0; i < 11 * fEnergyLevel; i++)
                 {
+                    QGraphicsRectItem* rItem0 = new QGraphicsRectItem();
+                    rItem0->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
+                    rItem0->setPen(QPen(QColor(Qt::green)));
+                    rItem0->setBrush(QBrush(QColor(Qt::green)));
+                    rItem0->setPos((worm->px - 5 + i - fCameraPosX)*SCREEN::CELL_SIZE.width(),
+                                   (worm->py - 12 - fCameraPosY)*SCREEN::CELL_SIZE.height());
+                    addItem(rItem0);
+
+                    QGraphicsRectItem* rItem1 = new QGraphicsRectItem();
+                    rItem1->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
+                    rItem1->setPen(QPen(QColor(Qt::red)));
+                    rItem1->setBrush(QBrush(QColor(Qt::red)));
+                    rItem1->setPos((worm->px - 5 + i - fCameraPosX)*SCREEN::CELL_SIZE.width(),
+                                   (worm->py - 11 - fCameraPosY)*SCREEN::CELL_SIZE.height());
+                    addItem(rItem1);
+
 //                    Draw(worm->px - 5 + i - fCameraPosX, worm->py - 12 - fCameraPosY, PIXEL_SOLID, FG_GREEN);
 //                    Draw(worm->px - 5 + i - fCameraPosX, worm->py - 11 - fCameraPosY, PIXEL_SOLID, FG_RED);
                 }
@@ -492,7 +513,11 @@ void GameScene::updatePhysics()
                         // > 0 Explosion
                         int nResponse = p->BounceDeathAction();
                         if (nResponse > 0)
+                        {
                             boom(p->px, p->py, nResponse);
+                            // Dead objects can no lobger be tracked by the camera
+                            pCameraTrackingObject = nullptr;
+                        }
                     }
                 }
 
@@ -645,7 +670,16 @@ void GameScene::keyPressEvent(QKeyEvent *event)
 {
     if(KEYBOARD::KeysMapper.contains(event->key()))
     {
-        m_keys[KEYBOARD::KeysMapper[event->key()]]->m_held = true;
+        if(event->isAutoRepeat())
+        {
+            m_keys[KEYBOARD::KeysMapper[event->key()]]->m_held = true;
+            m_keys[KEYBOARD::KeysMapper[event->key()]]->m_pressed = false;
+        }
+        else
+        {
+            m_keys[KEYBOARD::KeysMapper[event->key()]]->m_pressed = true;
+            m_keys[KEYBOARD::KeysMapper[event->key()]]->m_held    = false;
+        }
     }
     QGraphicsScene::keyPressEvent(event);
 }
@@ -654,8 +688,13 @@ void GameScene::keyReleaseEvent(QKeyEvent *event)
 {
     if(KEYBOARD::KeysMapper.contains(event->key()))
     {
-        m_keys[KEYBOARD::KeysMapper[event->key()]]->m_held = false;
-        m_keys[KEYBOARD::KeysMapper[event->key()]]->m_released = true;
+        if(!event->isAutoRepeat())
+        {
+            m_keys[KEYBOARD::KeysMapper[event->key()]]->m_held = false;
+            m_keys[KEYBOARD::KeysMapper[event->key()]]->m_pressed = false;
+            m_keys[KEYBOARD::KeysMapper[event->key()]]->m_released = true;
+        }
+
     }
     QGraphicsScene::keyReleaseEvent(event);
 }
