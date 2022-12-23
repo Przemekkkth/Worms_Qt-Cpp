@@ -49,8 +49,33 @@ private:
     // Camera coordinates
     float fCameraPosX = 0.0f;
     float fCameraPosY = 0.0f;
+    float fCameraPosXTarget = 0.0f;
+    float fCameraPosYTarget = 0.0f;
+
+    enum GAME_STATE
+    {
+        GS_RESET = 0,
+        GS_GENERATE_TERRAIN = 1,
+        GS_GENERATING_TERRAIN,
+        GS_ALLOCATE_UNITS,
+        GS_ALLOCATING_UNITS,
+        GS_START_PLAY,
+        GS_CAMERA_MODE
+    } nGameState, nNextState;
+
+    bool bGameIsStable = false;
+    bool bPlayerHasControl = false;
+    bool bPlayerActionComplete = false;
+
     //List of things that exist in game world
     std::list<std::unique_ptr<PhysicsObject>> listObjects;
+    PhysicsObject* pObjectUnderControl = nullptr;
+    PhysicsObject* pCameraTrackingObject = nullptr;
+
+    bool bEnergising = false;
+    float fEnergyLevel = 0.0f;
+    bool bFireWeapon = false;
+
     QImage m_image;
     QPoint m_mousePosition;
 
@@ -59,7 +84,7 @@ private:
     KeyStatus* m_keys[256];
     MouseStatus* m_mouse;
 
-    const int FPS = 30;
+    const int FPS = 45;
     QTimer m_timer;
     QElapsedTimer m_elapsedTimer;
     float m_deltaTime = 0.0f, m_loopTime = 0.0f;

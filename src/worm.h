@@ -9,7 +9,7 @@ public:
     Worm(float x, float y);
     virtual void Draw(GameScene *scene, float fOffsetX, float fOffsetY) override;
     virtual int BounceDeathAction() override;
-
+    float fShootAngle = 0.0f;
 private:
     QPixmap m_pixmap;
 };

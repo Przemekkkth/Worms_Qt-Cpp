@@ -17,7 +17,6 @@ Worm::Worm(float x, float y)
 
 void Worm::Draw(GameScene *scene, float fOffsetX, float fOffsetY)
 {
-    //engine->DrawPartialSprite(px - fOffsetX - radius, py - fOffsetY - radius, sprWorm, 0, 0, 8, 8);
     QGraphicsPixmapItem* pItem = new QGraphicsPixmapItem();
     pItem->setPixmap(m_pixmap.scaled(8*SCREEN::CELL_SIZE.width(),
                                      8*SCREEN::CELL_SIZE.height()));

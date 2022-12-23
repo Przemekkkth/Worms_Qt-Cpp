@@ -15,12 +15,17 @@ GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent), map(new unsigned char[nMapWidth * nMapHeight])
 {
     //map = new unsigned char[nMapWidth * nMapHeight];
+    map = new unsigned char[nMapWidth * nMapHeight];
     memset(map, 0, nMapWidth*nMapHeight * sizeof(unsigned char));
+    //CreateMap();
+
+    nGameState = GS_RESET;
+    nNextState = GS_RESET;
+
     m_image = QImage(SCREEN::LOGICAL_SIZE, QImage::Format_RGB32);
     m_image.fill(QColor(Qt::yellow));
-    CreateMap();
 
-    boom(0,0,0);
+
     drawLandscape();
     for(int i = 0; i < 256; ++i)
     {
@@ -50,6 +55,178 @@ void GameScene::setCamera()
     if (m_mousePosition.x() > SCREEN::PHYSICAL_SIZE.width() - 10) fCameraPosX += fMapScrollSpeed * fElapsedTime;
     if (m_mousePosition.y() < 10) fCameraPosY -= fMapScrollSpeed * fElapsedTime;
     if (m_mousePosition.y() > SCREEN::PHYSICAL_SIZE.height() - 10) fCameraPosY += fMapScrollSpeed * fElapsedTime;
+
+    // Control Supervisor
+    switch (nGameState)
+    {
+    case GS_RESET: // Set game variables to know state
+    {
+        bGameIsStable = false;
+        bPlayerActionComplete = false;
+        bPlayerHasControl = false;
+        nNextState = GS_GENERATE_TERRAIN;
+    }
+        break;
+
+    case GS_GENERATE_TERRAIN: // Create a new terrain
+    {
+        bPlayerHasControl = false;
+        CreateMap();
+        nNextState = GS_GENERATING_TERRAIN;
+    }
+        break;
+
+    case GS_GENERATING_TERRAIN: // Does nothing, for now ;)
+    {
+        bPlayerHasControl = false;
+        nNextState = GS_ALLOCATE_UNITS;
+    }
+        break;
+
+    case GS_ALLOCATE_UNITS: // Add a unit to the top of the screen
+    {
+        bPlayerHasControl = false;
+        Worm *worm = new Worm(32.0f, 1.0f);
+        listObjects.push_back(std::unique_ptr<Worm>(worm));
+        pObjectUnderControl = worm;
+        pCameraTrackingObject = pObjectUnderControl;
+        nNextState = GS_ALLOCATING_UNITS;
+    }
+        break;
+
+    case GS_ALLOCATING_UNITS: // Stay in this state whilst units are deploying
+    {
+        bPlayerHasControl = false;
+
+        if (bGameIsStable) // Can only leave state once game is stable
+        {
+            bPlayerActionComplete = false;
+            nNextState = GS_START_PLAY;
+        }
+    }
+        break;
+
+    case GS_START_PLAY: // Player is in control of unit
+    {
+        bPlayerHasControl = true;
+        if (bPlayerActionComplete) // Can only leave state when the player action has completed
+            nNextState = GS_CAMERA_MODE;
+    }
+        break;
+
+    case GS_CAMERA_MODE: // Camera is tracking on-screen action
+    {
+        bPlayerHasControl = false;
+        bPlayerActionComplete = false;
+
+        if (bGameIsStable) // Can only leave state when action has finished, and engine is stable
+        {
+            pCameraTrackingObject = pObjectUnderControl;
+            nNextState = GS_START_PLAY;
+        }
+
+    }
+        break;
+    }
+    // Handle User Input
+    if (bPlayerHasControl)
+    {
+        if (pObjectUnderControl != nullptr)
+        {
+            if (pObjectUnderControl->bStable)
+            {
+                if (m_keys[KEYBOARD::KEY_Z]->m_released) // Jump in direction of cursor
+                {
+                    float a = ((Worm*)pObjectUnderControl)->fShootAngle;
+                    pObjectUnderControl->vx = 4.0f * cosf(a);
+                    pObjectUnderControl->vy = 8.0f * sinf(a);
+                    pObjectUnderControl->bStable = false;
+                }
+
+                if (m_keys[KEYBOARD::KEY_A]->m_held) // Rotate cursor CCW
+                {
+                    Worm* worm = (Worm*)pObjectUnderControl;
+                    worm->fShootAngle -= 1.0f * fElapsedTime;
+                    if (worm->fShootAngle < -3.14159f) worm->fShootAngle += 3.14159f * 2.0f;
+                }
+
+                if (m_keys[KEYBOARD::KEY_S]->m_held) // Rotate cursor CW
+                {
+                    Worm* worm = (Worm*)pObjectUnderControl;
+                    worm->fShootAngle += 1.0f * fElapsedTime;
+                    if (worm->fShootAngle > 3.14159f) worm->fShootAngle -= 3.14159f * 2.0f;
+                }
+
+                if (m_keys[KEYBOARD::KEY_SPACE]->m_held) // Start to charge weapon
+                {
+                    bEnergising = true;
+                    bFireWeapon = false;
+                    fEnergyLevel = 0.0f;
+                }
+
+                if (m_keys[KEYBOARD::KEY_SPACE]->m_held) // Weapon is charging
+                {
+                    if (bEnergising)
+                    {
+                        fEnergyLevel += 0.75f * fElapsedTime;
+                        if (fEnergyLevel >= 1.0f) // If it maxes out, Fire!
+                        {
+                            fEnergyLevel = 1.0f;
+                            bFireWeapon = true;
+                        }
+                    }
+                }
+
+                if (m_keys[KEYBOARD::KEY_SPACE]->m_released) // If it is released before maxing out, Fire!
+                {
+                    if (bEnergising)
+                    {
+                        bFireWeapon = true;
+                    }
+
+                    bEnergising = false;
+                }
+            }
+
+            if (bFireWeapon)
+            {
+                Worm* worm = (Worm*)pObjectUnderControl;
+
+                // Get Weapon Origin
+                float ox = worm->px;
+                float oy = worm->py;
+
+                // Get Weapon Direction
+                float dx = cosf(worm->fShootAngle);
+                float dy = sinf(worm->fShootAngle);
+
+                // Create Weapon Object
+                Missile *m = new Missile(ox, oy, dx * 40.0f * fEnergyLevel, dy * 40.0f * fEnergyLevel);
+                listObjects.push_back(std::unique_ptr<Missile>(m));
+                pCameraTrackingObject = m;
+
+                // Reset flags involved with firing weapon
+                bFireWeapon = false;
+                fEnergyLevel = 0.0f;
+                bEnergising = false;
+
+                // Indicate the player has completed their action for this unit
+                bPlayerActionComplete = true;
+            }
+        }
+    }
+
+    if (pCameraTrackingObject != nullptr)
+    {
+        //fCameraPosX = pCameraTrackingObject->px - ScreenWidth() / 2;
+        //fCameraPosY = pCameraTrackingObject->py - ScreenHeight() / 2;
+        fCameraPosXTarget = pCameraTrackingObject->px - SCREEN::LOGICAL_SIZE.width()/ 2;
+        fCameraPosYTarget = pCameraTrackingObject->py - SCREEN::LOGICAL_SIZE.height() / 2;
+        fCameraPosX += (fCameraPosXTarget - fCameraPosX) * 5.0f * fElapsedTime;
+        fCameraPosY += (fCameraPosYTarget - fCameraPosY) * 5.0f * fElapsedTime;
+    }
+
+
     // Clamp map boundaries
     if (fCameraPosX < 0)
     {
@@ -91,9 +268,81 @@ void GameScene::loop()
         for (auto &p : listObjects)
         {
             p->Draw(this, fCameraPosX, fCameraPosY);
-            //(m_mousePosition.x()/SCREEN::CELL_SIZE.width()) + fCameraPosX, (m_mousePosition.y()/SCREEN::CELL_SIZE.height()) + fCameraPosY
-            //p->Draw()
+            Worm* worm = (Worm*)pObjectUnderControl;
+
+            if (p.get() == worm)
+            {
+                float cx = worm->px + 8.0f * cosf(worm->fShootAngle) - fCameraPosX;
+                float cy = worm->py + 8.0f * sinf(worm->fShootAngle) - fCameraPosY;
+
+                // Draw "+" symbol
+                QGraphicsRectItem* rItem0 = new QGraphicsRectItem();
+                rItem0->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
+                rItem0->setPen(QPen(QColor(Qt::black)));
+                rItem0->setBrush(QBrush(QColor(Qt::black)));
+                rItem0->setPos(cx*SCREEN::CELL_SIZE.width(), cy*SCREEN::CELL_SIZE.height());
+                addItem(rItem0);
+
+                QGraphicsRectItem* rItem1 = new QGraphicsRectItem();
+                rItem1->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
+                rItem1->setPen(QPen(QColor(Qt::black)));
+                rItem1->setBrush(QBrush(QColor(Qt::black)));
+                rItem1->setPos((cx+1)*SCREEN::CELL_SIZE.width(), cy*SCREEN::CELL_SIZE.height());
+                addItem(rItem1);
+
+                QGraphicsRectItem* rItem2 = new QGraphicsRectItem();
+                rItem2->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
+                rItem2->setPen(QPen(QColor(Qt::black)));
+                rItem2->setBrush(QBrush(QColor(Qt::black)));
+                rItem2->setPos((cx-1)*SCREEN::CELL_SIZE.width(), cy*SCREEN::CELL_SIZE.height());
+                addItem(rItem2);
+
+                QGraphicsRectItem* rItem3 = new QGraphicsRectItem();
+                rItem3->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
+                rItem3->setPen(QPen(QColor(Qt::black)));
+                rItem3->setBrush(QBrush(QColor(Qt::black)));
+                rItem3->setPos(cx*SCREEN::CELL_SIZE.width(), (cy+1)*SCREEN::CELL_SIZE.height());
+                addItem(rItem3);
+
+                QGraphicsRectItem* rItem4 = new QGraphicsRectItem();
+                rItem4->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
+                rItem4->setPen(QPen(QColor(Qt::black)));
+                rItem4->setBrush(QBrush(QColor(Qt::black)));
+                rItem4->setPos(cx*SCREEN::CELL_SIZE.width(), (cy-1)*SCREEN::CELL_SIZE.height());
+                addItem(rItem4);
+//                Draw(cx, cy, PIXEL_SOLID, FG_BLACK);
+//                Draw(cx + 1, cy, PIXEL_SOLID, FG_BLACK);
+//                Draw(cx - 1, cy, PIXEL_SOLID, FG_BLACK);
+//                Draw(cx, cy + 1, PIXEL_SOLID, FG_BLACK);
+//                Draw(cx, cy - 1, PIXEL_SOLID, FG_BLACK);
+
+                // Draws an Energy Bar, indicating how much energy should the weapon be
+                // fired with
+                for (int i = 0; i < 11 * fEnergyLevel; i++)
+                {
+//                    Draw(worm->px - 5 + i - fCameraPosX, worm->py - 12 - fCameraPosY, PIXEL_SOLID, FG_GREEN);
+//                    Draw(worm->px - 5 + i - fCameraPosX, worm->py - 11 - fCameraPosY, PIXEL_SOLID, FG_RED);
+                }
+            }
         }
+
+        // Check For game state stability
+        bGameIsStable = true;
+        for (auto &p : listObjects)
+            if (!p->bStable)
+            {
+                bGameIsStable = false;
+                break;
+            }
+
+        // DEBUG Feature: Indicate Game Stability
+        if (bGameIsStable)
+        {
+//            Fill(2, 2, 6, 6, PIXEL_SOLID, FG_RED);
+        }
+
+        // Update State Machine
+        nGameState = nNextState;
 
         resetStatus();
     }
@@ -376,6 +625,11 @@ void GameScene::handlePlayerInput()
     if(m_keys[KEYBOARD::KEY_3]->m_released)
     {
         listObjects.push_back(std::unique_ptr<Worm>(new Worm((m_mousePosition.x()/SCREEN::CELL_SIZE.width()) + fCameraPosX, (m_mousePosition.y()/SCREEN::CELL_SIZE.height()) + fCameraPosY)));
+    }
+
+    if(m_keys[KEYBOARD::KEY_9]->m_released)
+    {
+        CreateMap();
     }
 }
 
