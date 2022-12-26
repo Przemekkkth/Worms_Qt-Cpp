@@ -50,6 +50,11 @@ int Dummy::BounceDeathAction()
     return 0;
 }
 
+bool Dummy::Damege(float d)
+{
+    return true;
+}
+
 std::vector<std::pair<float, float>> DefineDummy()
 {
     // Defines a circle with a line fom center to edge

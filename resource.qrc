@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/">
         <file>res/worms.png</file>
+        <file>res/all.png</file>
     </qresource>
 </RCC>

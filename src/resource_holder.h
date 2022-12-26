@@ -19,7 +19,7 @@ class ResourceHolder
         const Resource&				get(Identifier id) const;
 
 
-    private:
+    public:
         void						insertResource(Identifier id, std::unique_ptr<Resource> resource);
 
 

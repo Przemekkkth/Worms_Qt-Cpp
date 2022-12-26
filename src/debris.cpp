@@ -54,6 +54,11 @@ int Debris::BounceDeathAction()
     return 0;
 }
 
+bool Debris::Damege(float d)
+{
+    return true;
+}
+
 std::vector<std::pair<float, float>> DefineDebris()
 {
     // A small unit rectangle

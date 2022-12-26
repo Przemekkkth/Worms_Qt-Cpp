@@ -10,8 +10,9 @@ public:
     virtual ~Dummy();
     virtual void Draw(GameScene *scene, float fOffsetX, float fOffsetY) override;
     virtual int BounceDeathAction() override;
+    virtual bool Damege(float d) override;
 private:
-    static std::vector<std::pair<float, float>> vecModel;
+    static std::vector<std::pair<float, float>> vecModel;    
 };
 
 #endif // DUMMY_H

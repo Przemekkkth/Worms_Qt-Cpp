@@ -46,6 +46,11 @@ int Missile::BounceDeathAction()
     return 20; // Explode Big
 }
 
+bool Missile::Damege(float d)
+{
+    return true;
+}
+
 std::vector<std::pair<float, float>> DefineMissile()
 {
     // Defines a rocket like shape

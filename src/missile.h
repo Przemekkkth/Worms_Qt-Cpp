@@ -10,6 +10,7 @@ public:
     Missile(float x = 0.0f, float y = 0.0f, float _vx = 0.0f, float _vy = 0.0f);
     virtual void Draw(GameScene *scene, float fOffsetX, float fOffsetY) override;
     virtual int BounceDeathAction() override;
+    virtual bool Damege(float d) override;
 private:
     static std::vector<std::pair<float, float>> vecModel;
 };

@@ -7,7 +7,8 @@ class PixmapManager
 {
 public:
     enum class TextureID{
-        Worms
+        Worms, All, Worm_Green, Worm_Red, Worm_Purple, Worm_Blue,
+        Timberstone_Green, Timberstone_Red, Timberstone_Purple, Timberstone_Blue
     };
     static PixmapManager* Instance();
     QPixmap& getPixmap(TextureID id);
