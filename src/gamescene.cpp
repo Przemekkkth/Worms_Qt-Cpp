@@ -90,7 +90,8 @@ void GameScene::setCamera()
         listObjects.push_back(std::unique_ptr<Worm>(worm));
         pObjectUnderControl = worm;
         pCameraTrackingObject = pObjectUnderControl;
-        fCameraPosY = 2000.0f;
+//        fCameraPosX = SCREEN::PHYSICAL_SIZE.width()/2;
+//        fCameraPosY = SCREEN::PHYSICAL_SIZE.height()/2;
         nNextState = GS_ALLOCATING_UNITS;
     }
         break;
@@ -648,7 +649,10 @@ void GameScene::handlePlayerInput()
     }
     if(m_keys[KEYBOARD::KEY_3]->m_released)
     {
-        listObjects.push_back(std::unique_ptr<Worm>(new Worm((m_mousePosition.x()/SCREEN::CELL_SIZE.width()) + fCameraPosX, (m_mousePosition.y()/SCREEN::CELL_SIZE.height()) + fCameraPosY)));
+        Worm* worm = new Worm((m_mousePosition.x()/SCREEN::CELL_SIZE.width()) + fCameraPosX, (m_mousePosition.y()/SCREEN::CELL_SIZE.height()) + fCameraPosY);
+        pObjectUnderControl = worm;
+        pCameraTrackingObject = worm;
+        listObjects.push_back(std::unique_ptr<Worm>(worm));
     }
 
     if(m_keys[KEYBOARD::KEY_9]->m_released)

@@ -18,8 +18,14 @@ Worm::Worm(float x, float y)
 void Worm::Draw(GameScene *scene, float fOffsetX, float fOffsetY)
 {
     QGraphicsPixmapItem* pItem = new QGraphicsPixmapItem();
-    pItem->setPixmap(m_pixmap.scaled(8*SCREEN::CELL_SIZE.width(),
+    if(fShootAngle >= -3.14/2 && fShootAngle <= 3.14/2)
+        pItem->setPixmap(m_pixmap.scaled(8*SCREEN::CELL_SIZE.width(),
+                                     8*SCREEN::CELL_SIZE.height()).transformed(QTransform().scale(-1,1)));
+    else
+    {
+        pItem->setPixmap(m_pixmap.scaled(8*SCREEN::CELL_SIZE.width(),
                                      8*SCREEN::CELL_SIZE.height()));
+    }
     QPoint p = QPoint(px - fOffsetX - radius, py - fOffsetY - radius);
     pItem->setPos(int(p.x()*SCREEN::CELL_SIZE.width()), int(p.y()*SCREEN::CELL_SIZE.height()));
     scene->addItem(pItem);
