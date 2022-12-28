@@ -31,7 +31,7 @@ public:
     // Flag to indicate object should be removed
     bool bDead = false;
 
-    virtual void Draw(GameScene* scene, float fOffsetX, float fOffsetY) = 0;
+    virtual void Draw(GameScene* scene, float fOffsetX, float fOffsetY, bool bPixel = false) = 0;
     virtual int BounceDeathAction() = 0;
     virtual bool Damege(float d) = 0;
 };

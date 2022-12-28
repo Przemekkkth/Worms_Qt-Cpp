@@ -24,7 +24,7 @@ Debris::~Debris()
 
 }
 
-void Debris::Draw(GameScene *scene, float fOffsetX, float fOffsetY)
+void Debris::Draw(GameScene *scene, float fOffsetX, float fOffsetY, bool bPixel)
 {
     //engine->DrawWireFrameModel(vecModel, px - fOffsetX, py - fOffsetY, atan2f(vy, vx), radius, FG_DARK_GREEN);
     //QPolygon polygon;
@@ -43,7 +43,9 @@ void Debris::Draw(GameScene *scene, float fOffsetX, float fOffsetY)
     //pItem->setPos(px, py);
     pItem->setRotation(std::atan2(vy, vx)* (180.0f / 3.14159f));
 
-    pItem->setScale(radius*SCREEN::CELL_SIZE.width()/2.0f);
+    float factorScale = radius*SCREEN::CELL_SIZE.width()/2.0f;
+    float pixelScale = 0.5f*SCREEN::CELL_SIZE.width()/2.0f;
+    pItem->setScale(bPixel ? pixelScale : factorScale);
     pItem->setPen(QPen(QColor(Qt::darkGreen)));
     pItem->setBrush(QBrush(QColor(Qt::darkGreen)));
     scene->addItem(pItem);

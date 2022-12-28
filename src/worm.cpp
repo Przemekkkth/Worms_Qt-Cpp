@@ -15,7 +15,7 @@ Worm::Worm(float x, float y)
     m_pixmap = PixmapManager::Instance()->getPixmap(PixmapManager::TextureID::Worm_Red);
 }
 
-void Worm::Draw(GameScene *scene, float fOffsetX, float fOffsetY)
+void Worm::Draw(GameScene *scene, float fOffsetX, float fOffsetY, bool bPixel)
 {
     if(bIsPlayable)
     {
@@ -53,4 +53,30 @@ bool Worm::Damege(float d)
         bIsPlayable = false;
     }
     return fHealth > 0;
+}
+
+void Worm::setTeam(int nT)
+{
+    if(nT == 0)
+    {
+        m_pixmap = PixmapManager::Instance()->getPixmap(PixmapManager::TextureID::Worm_Green);
+    }
+    else if(nT == 1)
+    {
+        m_pixmap = PixmapManager::Instance()->getPixmap(PixmapManager::TextureID::Worm_Purple);
+    }
+    else if(nT == 2)
+    {
+        m_pixmap = PixmapManager::Instance()->getPixmap(PixmapManager::TextureID::Worm_Blue);
+    }
+    else
+    {
+        m_pixmap = PixmapManager::Instance()->getPixmap(PixmapManager::TextureID::Worm_Red);
+    }
+    nTeam = nT;
+}
+
+int Worm::team() const
+{
+    return nTeam;
 }

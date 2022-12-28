@@ -8,7 +8,7 @@ class Dummy : public PhysicsObject
 public:
     Dummy(float x = 0.0f, float y = 0.0f);
     virtual ~Dummy();
-    virtual void Draw(GameScene *scene, float fOffsetX, float fOffsetY) override;
+    virtual void Draw(GameScene *scene, float fOffsetX, float fOffsetY, bool bPixel = false) override;
     virtual int BounceDeathAction() override;
     virtual bool Damege(float d) override;
 private:

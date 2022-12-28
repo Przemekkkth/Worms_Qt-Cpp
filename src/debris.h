@@ -9,7 +9,7 @@ class Debris : public PhysicsObject
 public:
     Debris(float x = 0.0f, float y = 0.0f);
     virtual ~Debris();
-    virtual void Draw(GameScene *scene, float fOffsetX, float fOffsetY) override;
+    virtual void Draw(GameScene *scene, float fOffsetX, float fOffsetY, bool bPixel = false) override;
     virtual int BounceDeathAction() override;
     virtual bool Damege(float d) override;
 private:

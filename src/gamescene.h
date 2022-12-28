@@ -7,6 +7,7 @@
 #include <list>
 #include <memory>
 #include "physics_object.h"
+#include "team.h"
 #include <QImage>
 
 struct KeyStatus
@@ -40,7 +41,7 @@ private:
     void CreateMap();
     void PerlinNoise1D(int nCount, float *fSeed, int nOctaves, float fBias, float *fOutput);
     void drawLandscape();
-    QPoint mousePosition() const;    
+    QPoint mousePosition() const;
     void boom(float fWorldX, float fWorldY, float fRadius);
     void updatePhysics();
     //Terrain size
@@ -61,21 +62,52 @@ private:
         GS_ALLOCATE_UNITS,
         GS_ALLOCATING_UNITS,
         GS_START_PLAY,
-        GS_CAMERA_MODE
+        GS_CAMERA_MODE,
+        GS_GAME_OVER1,
+        GS_GAME_OVER2
     } nGameState, nNextState;
 
-    bool bGameIsStable = false;
-    bool bPlayerHasControl = false;
-    bool bPlayerActionComplete = false;
+    enum AI_STATE
+    {
+        AI_ASSESS_ENVIRONMENT = 0,
+        AI_MOVE,
+        AI_CHOOSE_TARGET,
+        AI_POSITION_FOR_TARGET,
+        AI_AIM,
+        AI_FIRE,
+    } nAIState, nAINextState;
 
+    bool bZoomOut = false;
+    bool bGameIsStable = false;
+    bool bEnablePlayerControl = true;		// The player is in control, keyboard input enabled
+    bool bEnableComputerControl = false;	// The AI is in control
+    bool bEnergising = false;				// Weapon is charging
+    bool bFireWeapon = false;				// Weapon should be discharged
+    bool bShowCountDown = false;			// Display turn time counter on screen
+    bool bPlayerHasFired = false;			// Weapon has been discharged
     //List of things that exist in game world
     std::list<std::unique_ptr<PhysicsObject>> listObjects;
     PhysicsObject* pObjectUnderControl = nullptr;
     PhysicsObject* pCameraTrackingObject = nullptr;
 
-    bool bEnergising = false;
     float fEnergyLevel = 0.0f;
-    bool bFireWeapon = false;
+    float fTurnTime    = 0.0f;
+    std::vector<Team> vecTeams;
+    int nCurrentTeam = 0;
+
+    // AI control flags
+    bool bAI_Jump = false;				// AI has pressed "JUMP" key
+    bool bAI_AimLeft = false;			// AI has pressed "AIM_LEFT" key
+    bool bAI_AimRight = false;			// AI has pressed "AIM_RIGHT" key
+    bool bAI_Energise = false;			// AI has pressed "FIRE" key
+
+
+    float fAITargetAngle = 0.0f;		// Angle AI should aim for
+    float fAITargetEnergy = 0.0f;		// Energy level AI should aim for
+    float fAISafePosition = 0.0f;		// X-Coordinate considered safe for AI to move to
+    Worm* pAITargetWorm = nullptr;		// Pointer to worm AI has selected as target
+    float fAITargetX = 0.0f;			// Coordinates of target missile location
+    float fAITargetY = 0.0f;
 
     QImage m_image;
     QPoint m_mousePosition;

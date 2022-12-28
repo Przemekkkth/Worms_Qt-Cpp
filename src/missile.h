@@ -8,7 +8,7 @@ class Missile : public PhysicsObject
 {
 public:
     Missile(float x = 0.0f, float y = 0.0f, float _vx = 0.0f, float _vy = 0.0f);
-    virtual void Draw(GameScene *scene, float fOffsetX, float fOffsetY) override;
+    virtual void Draw(GameScene *scene, float fOffsetX, float fOffsetY, bool bPixel = false) override;
     virtual int BounceDeathAction() override;
     virtual bool Damege(float d) override;
 private:

@@ -17,13 +17,16 @@ GameScene::GameScene(QObject *parent)
     //map = new unsigned char[nMapWidth * nMapHeight];
     map = new unsigned char[nMapWidth * nMapHeight];
     memset(map, 0, nMapWidth*nMapHeight * sizeof(unsigned char));
-    //CreateMap();
 
     nGameState = GS_RESET;
     nNextState = GS_RESET;
+    nAIState = AI_ASSESS_ENVIRONMENT;
+    nAINextState = AI_ASSESS_ENVIRONMENT;
+
+    bGameIsStable = false;
 
     m_image = QImage(SCREEN::LOGICAL_SIZE, QImage::Format_RGB32);
-    m_image.fill(QColor(Qt::yellow));
+    m_image.fill(QColor(Qt::black));
 
 
     drawLandscape();
@@ -49,6 +52,11 @@ void GameScene::setMousePosition(QPoint newPos)
 void GameScene::setCamera()
 {
     float fElapsedTime = 1.0f/m_loopSpeed;
+    if(m_keys[KEYBOARD::KEY_T]->m_released)
+    {
+        bZoomOut = !bZoomOut;
+    }
+
     // Mouse Edge Map Scroll
     float fMapScrollSpeed = 400.0f;
     if (m_mousePosition.x() < 10) fCameraPosX -= fMapScrollSpeed * fElapsedTime;
@@ -61,48 +69,81 @@ void GameScene::setCamera()
     {
     case GS_RESET: // Set game variables to know state
     {
+        bEnablePlayerControl = false;
         bGameIsStable = false;
-        bPlayerActionComplete = false;
-        bPlayerHasControl = false;
+        bPlayerHasFired = false;
+        bShowCountDown = false;
         nNextState = GS_GENERATE_TERRAIN;
     }
         break;
 
     case GS_GENERATE_TERRAIN: // Create a new terrain
     {
-        bPlayerHasControl = false;
+        bZoomOut = true;
         CreateMap();
+        bGameIsStable = false;
+        bShowCountDown = false;
         nNextState = GS_GENERATING_TERRAIN;
     }
         break;
 
     case GS_GENERATING_TERRAIN: // Does nothing, for now ;)
     {
-        bPlayerHasControl = false;
-        nNextState = GS_ALLOCATE_UNITS;
+        bShowCountDown = false;
+        if (bGameIsStable)
+        {
+            nNextState = GS_ALLOCATE_UNITS;
+        }
     }
         break;
 
     case GS_ALLOCATE_UNITS: // Add a unit to the top of the screen
     {
-        bPlayerHasControl = false;
-        Worm *worm = new Worm(64.0f, 1.0f);
-        listObjects.push_back(std::unique_ptr<Worm>(worm));
-        pObjectUnderControl = worm;
+        // Deploy teams
+        int nTeams = 4;
+        int nWormsPerTeam = 4;
+
+        // Calculate spacing of worms and teams
+        float fSpacePerTeam = (float)nMapWidth / (float)nTeams;
+        float fSpacePerWorm = fSpacePerTeam / (nWormsPerTeam * 2.0f);
+
+        // Create teams
+        for (int t = 0; t < nTeams; t++)
+        {
+            vecTeams.emplace_back(Team());
+            float fTeamMiddle = (fSpacePerTeam / 2.0f) + (t * fSpacePerTeam);
+            for (int w = 0; w < nWormsPerTeam; w++)
+            {
+                float fWormX = fTeamMiddle - ((fSpacePerWorm * (float)nWormsPerTeam) / 2.0f) + w * fSpacePerWorm;
+                float fWormY = 0.0f;
+
+                // Add worms to teams
+                Worm *worm = new Worm(fWormX,fWormY);
+                worm->setTeam(t);
+                listObjects.push_back(std::unique_ptr<Worm>(worm));
+                vecTeams[t].vecMembers.push_back(worm);
+                vecTeams[t].nTeamSize = nWormsPerTeam;
+            }
+
+            vecTeams[t].nCurrentMember = 0;
+        }
+
+        // Select players first worm for control and camera tracking
+        pObjectUnderControl = vecTeams[0].vecMembers[vecTeams[0].nCurrentMember];
         pCameraTrackingObject = pObjectUnderControl;
-//        fCameraPosX = SCREEN::PHYSICAL_SIZE.width()/2;
-//        fCameraPosY = SCREEN::PHYSICAL_SIZE.height()/2;
+        bShowCountDown = false;
         nNextState = GS_ALLOCATING_UNITS;
     }
         break;
 
     case GS_ALLOCATING_UNITS: // Stay in this state whilst units are deploying
     {
-        bPlayerHasControl = false;
-
-        if (bGameIsStable) // Can only leave state once game is stable
+        if (bGameIsStable)
         {
-            bPlayerActionComplete = false;
+            bEnablePlayerControl = true;
+            bEnableComputerControl = false;
+            fTurnTime = 15.0f;
+            bZoomOut = false;
             nNextState = GS_START_PLAY;
         }
     }
@@ -110,126 +151,400 @@ void GameScene::setCamera()
 
     case GS_START_PLAY: // Player is in control of unit
     {
-        bPlayerHasControl = true;
-        if (bPlayerActionComplete) // Can only leave state when the player action has completed
+        bShowCountDown = true;
+
+        // If player has discharged weapon, or turn time is up, move on to next state
+        if (bPlayerHasFired || fTurnTime <= 0.0f)
+        {
             nNextState = GS_CAMERA_MODE;
+        }
     }
         break;
 
     case GS_CAMERA_MODE: // Camera is tracking on-screen action
     {
-        bPlayerHasControl = false;
-        bPlayerActionComplete = false;
+        bEnableComputerControl = false;
+        bEnablePlayerControl = false;
+        bPlayerHasFired = false;
+        bShowCountDown = false;
+        fEnergyLevel = 0.0f;
 
-        if (bGameIsStable) // Can only leave state when action has finished, and engine is stable
+        if (bGameIsStable) // Once settled, choose next worm
         {
+            // Get Next Team, if there is no next team, game is over
+            int nOldTeam = nCurrentTeam;
+            do {
+                nCurrentTeam++;
+                nCurrentTeam %= vecTeams.size();
+            } while (!vecTeams[nCurrentTeam].IsTeamAlive());
+
+            // Lock controls if AI team is currently playing
+            if (nCurrentTeam == 0) // Player Team
+            {
+                bEnablePlayerControl = true;	// Swap these around for complete AI battle
+                bEnableComputerControl = false;
+            }
+            else // AI Team
+            {
+                bEnablePlayerControl = false;
+                bEnableComputerControl = true;
+            }
+
+            // Set control and camera
+            pObjectUnderControl = vecTeams[nCurrentTeam].GetNextMember();
             pCameraTrackingObject = pObjectUnderControl;
+            fTurnTime = 15.0f;
+            bZoomOut = false;
             nNextState = GS_START_PLAY;
+
+            // If no different team could be found...
+            if (nCurrentTeam == nOldTeam)
+            {
+                // ...Game is over, Current Team have won!
+                nNextState = GS_GAME_OVER1;
+            }
         }
 
     }
         break;
-    }
-    // Handle User Input
-    if (bPlayerHasControl)
+    case GS_GAME_OVER1: // Zoom out and launch loads of missiles!
     {
-        if (pObjectUnderControl != nullptr)
+        bEnableComputerControl = false;
+        bEnablePlayerControl = false;
+        bZoomOut = true;
+        bShowCountDown = false;
+
+        for (int i = 0; i < 100; i ++)
         {
-            if (pObjectUnderControl->bStable)
+            int nBombX = rand() % nMapWidth;
+            int nBombY = rand() % (nMapHeight / 2);
+            listObjects.push_back(std::unique_ptr<Missile>(new Missile(nBombX, nBombY, 0.0f, 0.5f)));
+        }
+
+        nNextState = GS_GAME_OVER2;
+    }
+    break;
+
+    case GS_GAME_OVER2: // Stay here and wait for chaos to settle
+    {
+        bEnableComputerControl = false;
+        bEnablePlayerControl = false;
+        // No exit from this state!
+    }
+    break;
+    }
+
+    // AI State Machine
+    if (bEnableComputerControl)
+    {
+        switch (nAIState)
+        {
+        case AI_ASSESS_ENVIRONMENT:
+        {
+
+            int nAction = rand() % 3;
+            if (nAction == 0) // Play Defensive - move away from team
             {
-                if (m_keys[KEYBOARD::KEY_Z]->m_pressed) // Jump in direction of cursor
-                {
-                    float a = ((Worm*)pObjectUnderControl)->fShootAngle;
-                    pObjectUnderControl->vx = 4.0f * cosf(a);
-                    pObjectUnderControl->vy = 8.0f * sinf(a);
-                    pObjectUnderControl->bStable = false;
-                }
+                // Find nearest ally, walk away from them
+                float fNearestAllyDistance = INFINITY; float fDirection = 0;
+                Worm *origin = (Worm*)pObjectUnderControl;
 
-                if (m_keys[KEYBOARD::KEY_A]->m_held) // Rotate cursor CCW
+                for (auto w : vecTeams[nCurrentTeam].vecMembers)
                 {
-                    Worm* worm = (Worm*)pObjectUnderControl;
-                    worm->fShootAngle -= 1.0f * fElapsedTime;
-                    if (worm->fShootAngle < -3.14159f) worm->fShootAngle += 3.14159f * 2.0f;
-                }
-
-                if (m_keys[KEYBOARD::KEY_S]->m_held) // Rotate cursor CW
-                {
-                    Worm* worm = (Worm*)pObjectUnderControl;
-                    worm->fShootAngle += 1.0f * fElapsedTime;
-                    if (worm->fShootAngle > 3.14159f) worm->fShootAngle -= 3.14159f * 2.0f;
-                }
-
-                if (m_keys[KEYBOARD::KEY_SPACE]->m_pressed) // Start to charge weapon
-                {
-                    bEnergising = true;
-                    bFireWeapon = false;
-                    fEnergyLevel = 0.0f;
-                }
-
-                if (m_keys[KEYBOARD::KEY_SPACE]->m_held) // Weapon is charging
-                {
-                    if (bEnergising)
+                    if (w != pObjectUnderControl)
                     {
-                        fEnergyLevel += 0.75f * fElapsedTime;
-                        if (fEnergyLevel >= 1.0f) // If it maxes out, Fire!
+                        if (fabs(w->px - origin->px) < fNearestAllyDistance)
                         {
-                            fEnergyLevel = 1.0f;
-                            bFireWeapon = true;
+                            fNearestAllyDistance = fabs(w->px - origin->px);
+                            fDirection = (w->px - origin->px) < 0.0f ? 1.0f : -1.0f;
                         }
                     }
                 }
 
-                if (m_keys[KEYBOARD::KEY_SPACE]->m_released) // If it is released before maxing out, Fire!
-                {
-                    if (bEnergising)
-                    {
-                        bFireWeapon = true;
-                    }
+                if (fNearestAllyDistance < 50.0f)
+                    fAISafePosition = origin->px + fDirection * 80.0f;
+                else
+                    fAISafePosition = origin->px;
+            }
 
-                    bEnergising = false;
+            if (nAction == 1) // Play Ballsy - move towards middle
+            {
+                Worm *origin = (Worm*)pObjectUnderControl;
+                float fDirection = ((float)(nMapWidth / 2.0f) - origin->px) < 0.0f ? -1.0f : 1.0f;
+                fAISafePosition = origin->px + fDirection * 200.0f;
+            }
+
+            if (nAction == 2) // Play Dumb - don't move
+            {
+                Worm *origin = (Worm*)pObjectUnderControl;
+                fAISafePosition = origin->px;
+            }
+
+            // Clamp so dont walk off map
+            if (fAISafePosition <= 20.0f) fAISafePosition = 20.0f;
+            if (fAISafePosition >= nMapWidth - 20.0f) fAISafePosition = nMapWidth - 20.0f;
+            nAINextState = AI_MOVE;
+        }
+        break;
+
+        case AI_MOVE:
+        {
+            Worm *origin = (Worm*)pObjectUnderControl;
+            if (fTurnTime >= 8.0f && origin->px != fAISafePosition)
+            {
+                // Walk towards target until it is in range
+                if (fAISafePosition < origin->px && bGameIsStable)
+                {
+                    origin->fShootAngle = -3.14159f * 0.6f;
+                    bAI_Jump = true;
+                    nAINextState = AI_MOVE;
+                }
+
+                if (fAISafePosition > origin->px && bGameIsStable)
+                {
+                    origin->fShootAngle = -3.14159f * 0.4f;
+                    bAI_Jump = true;
+                    nAINextState = AI_MOVE;
                 }
             }
+            else
+                nAINextState = AI_CHOOSE_TARGET;
+        }
+        break;
 
-            if (bFireWeapon)
+        case AI_CHOOSE_TARGET: // Worm finished moving, choose target
+        {
+            bAI_Jump = false;
+
+            // Select Team that is not itself
+            Worm *origin = (Worm*)pObjectUnderControl;
+            int nCurrentTeam = origin->team();
+            int nTargetTeam = 0;
+            do {
+                nTargetTeam = rand() % vecTeams.size();
+            } while (nTargetTeam == nCurrentTeam || !vecTeams[nTargetTeam].IsTeamAlive());
+
+            // Aggressive strategy is to aim for opponent unit with most health
+            Worm *mostHealthyWorm = vecTeams[nTargetTeam].vecMembers[0];
+            for (auto w : vecTeams[nTargetTeam].vecMembers)
+                if (w->fHealth > mostHealthyWorm->fHealth)
+                    mostHealthyWorm = w;
+
+            pAITargetWorm = mostHealthyWorm;
+            fAITargetX = mostHealthyWorm->px;
+            fAITargetY = mostHealthyWorm->py;
+            nAINextState = AI_POSITION_FOR_TARGET;
+        }
+        break;
+
+        case AI_POSITION_FOR_TARGET: // Calculate trajectory for target, if the worm needs to move, do so
+        {
+            Worm *origin = (Worm*)pObjectUnderControl;
+            float dy = -(fAITargetY - origin->py);
+            float dx = -(fAITargetX - origin->px);
+            float fSpeed = 30.0f;
+            float fGravity = 2.0f;
+
+            bAI_Jump = false;
+
+            float a = fSpeed * fSpeed*fSpeed*fSpeed - fGravity * (fGravity * dx * dx + 2.0f * dy * fSpeed * fSpeed);
+
+            if (a < 0) // Target is out of range
             {
-                Worm* worm = (Worm*)pObjectUnderControl;
+                if (fTurnTime >= 5.0f)
+                {
+                    // Walk towards target until it is in range
+                    if (pAITargetWorm->px < origin->px && bGameIsStable)
+                    {
+                        origin->fShootAngle = -3.14159f * 0.6f;
+                        bAI_Jump = true;
+                        nAINextState = AI_POSITION_FOR_TARGET;
+                    }
 
-                // Get Weapon Origin
-                float ox = worm->px;
-                float oy = worm->py;
-
-                // Get Weapon Direction
-                float dx = cosf(worm->fShootAngle);
-                float dy = sinf(worm->fShootAngle);
-
-                // Create Weapon Object
-                Missile *m = new Missile(ox, oy, dx * 40.0f * fEnergyLevel, dy * 40.0f * fEnergyLevel);
-                listObjects.push_back(std::unique_ptr<Missile>(m));
-                pCameraTrackingObject = m;
-
-                // Reset flags involved with firing weapon
-                bFireWeapon = false;
-                fEnergyLevel = 0.0f;
-                bEnergising = false;
-
-                // Indicate the player has completed their action for this unit
-                bPlayerActionComplete = true;
+                    if (pAITargetWorm->px > origin->px && bGameIsStable)
+                    {
+                        origin->fShootAngle = -3.14159f * 0.4f;
+                        bAI_Jump = true;
+                        nAINextState = AI_POSITION_FOR_TARGET;
+                    }
+                }
+                else
+                {
+                    // Worm is stuck, so just fire in direction of enemy!
+                    // Its dangerous to self, but may clear a blockage
+                    fAITargetAngle = origin->fShootAngle;
+                    fAITargetEnergy = 0.75f;
+                    nAINextState = AI_AIM;
+                }
             }
+            else
+            {
+                // Worm is close enough, calculate trajectory
+                float b1 = fSpeed * fSpeed + sqrtf(a);
+                float b2 = fSpeed * fSpeed - sqrtf(a);
+
+                float fTheta1 = atanf(b1 / (fGravity * dx)); // Max Height
+                float fTheta2 = atanf(b2 / (fGravity * dx)); // Min Height
+
+                // We'll use max as its a greater chance of avoiding obstacles
+                fAITargetAngle = fTheta1 - (dx > 0 ? 3.14159f : 0.0f);
+                float fFireX = cosf(fAITargetAngle);
+                float fFireY = sinf(fAITargetAngle);
+
+                // AI is clamped to 3/4 power
+                fAITargetEnergy = 0.75f;
+                nAINextState = AI_AIM;
+            }
+        }
+        break;
+
+        case AI_AIM: // Line up aim cursor
+        {
+            Worm *worm = (Worm*)pObjectUnderControl;
+
+            bAI_AimLeft = false;
+            bAI_AimRight = false;
+            bAI_Jump = false;
+
+            if (worm->fShootAngle < fAITargetAngle)
+                bAI_AimRight = true;
+            else
+                bAI_AimLeft = true;
+
+            // Once cursors are aligned, fire - some noise could be
+            // included here to give the AI a varying accuracy, and the
+            // magnitude of the noise could be linked to game difficulty
+            if (fabs(worm->fShootAngle - fAITargetAngle) <= 0.001f)
+            {
+                bAI_AimLeft = false;
+                bAI_AimRight = false;
+                fEnergyLevel = 0.0f;
+                nAINextState = AI_FIRE;
+            }
+            else
+                nAINextState = AI_AIM;
+        }
+        break;
+
+        case AI_FIRE:
+        {
+            bAI_Energise = true;
+            bFireWeapon = false;
+            bEnergising = true;
+
+            if (fEnergyLevel >= fAITargetEnergy)
+            {
+                bFireWeapon = true;
+                bAI_Energise = false;
+                bEnergising = false;
+                bEnableComputerControl = false;
+                nAINextState = AI_ASSESS_ENVIRONMENT;
+            }
+        }
+        break;
+
         }
     }
 
-    if (pCameraTrackingObject != nullptr)
+    // Decrease Turn Time
+    fTurnTime -= fElapsedTime;
+
+    if (pObjectUnderControl != nullptr)
     {
-        //fCameraPosX = pCameraTrackingObject->px - ScreenWidth() / 2;
-        //fCameraPosY = pCameraTrackingObject->py - ScreenHeight() / 2;
-        fCameraPosXTarget = pCameraTrackingObject->px - SCREEN::LOGICAL_SIZE.width()/ 2;
-        fCameraPosYTarget = pCameraTrackingObject->py - SCREEN::LOGICAL_SIZE.height() / 2;
-        fCameraPosX += (fCameraPosXTarget - fCameraPosX) * 5.0f * fElapsedTime;
-        fCameraPosY += (fCameraPosYTarget - fCameraPosY) * 5.0f * fElapsedTime;
-    }
-    else
-    {
-        int i = 0;
+        pObjectUnderControl->ax = 0.0f;
+
+        if (pObjectUnderControl->bStable)
+        {
+            if ((bEnablePlayerControl && m_keys[KEYBOARD::KEY_Z]->m_pressed) || (bEnableComputerControl && bAI_Jump))
+            {
+                float a = ((Worm*)pObjectUnderControl)->fShootAngle;
+
+                pObjectUnderControl->vx = 4.0f * cosf(a);
+                pObjectUnderControl->vy = 8.0f * sinf(a);
+                pObjectUnderControl->bStable = false;
+
+                bAI_Jump = false;
+            }
+
+            if ((bEnablePlayerControl && m_keys[KEYBOARD::KEY_S]->m_held) || (bEnableComputerControl && bAI_AimRight))
+            {
+                Worm* worm = (Worm*)pObjectUnderControl;
+                worm->fShootAngle += 1.0f * fElapsedTime;
+                if (worm->fShootAngle > 3.14159f) worm->fShootAngle -= 3.14159f * 2.0f;
+            }
+
+            if ((bEnablePlayerControl && m_keys[KEYBOARD::KEY_A]->m_held) || (bEnableComputerControl && bAI_AimLeft))
+            {
+                Worm* worm = (Worm*)pObjectUnderControl;
+                worm->fShootAngle -= 1.0f * fElapsedTime;
+                if (worm->fShootAngle < -3.14159f) worm->fShootAngle += 3.14159f * 2.0f;
+            }
+
+            if ((bEnablePlayerControl && m_keys[KEYBOARD::KEY_SPACE]->m_pressed))
+            {
+                bFireWeapon = false;
+                bEnergising = true;
+                fEnergyLevel = 0.0f;
+            }
+
+            if ((bEnablePlayerControl && m_keys[KEYBOARD::KEY_SPACE]->m_held) || (bEnableComputerControl && bAI_Energise))
+            {
+                if (bEnergising)
+                {
+                    fEnergyLevel += 0.75f * fElapsedTime;
+                    if (fEnergyLevel >= 1.0f)
+                    {
+                        fEnergyLevel = 1.0f;
+                        bFireWeapon = true;
+                    }
+                }
+            }
+
+            if ((bEnablePlayerControl && m_keys[KEYBOARD::KEY_SPACE]->m_released))
+            {
+                if (bEnergising)
+                {
+                    bFireWeapon = true;
+                }
+
+                bEnergising = false;
+            }
+        }
+
+        if (pCameraTrackingObject != nullptr)
+        {
+            fCameraPosXTarget = pCameraTrackingObject->px - SCREEN::LOGICAL_SIZE.width()/ 2;
+            fCameraPosYTarget = pCameraTrackingObject->py - SCREEN::LOGICAL_SIZE.height() / 2;
+            fCameraPosX += (fCameraPosXTarget - fCameraPosX) * 15.0f * fElapsedTime;
+            fCameraPosY += (fCameraPosYTarget - fCameraPosY) * 15.0f * fElapsedTime;
+        }
+
+        if (bFireWeapon)
+        {
+            Worm* worm = (Worm*)pObjectUnderControl;
+
+            // Get Weapon Origin
+            float ox = worm->px;
+            float oy = worm->py;
+
+            // Get Weapon Direction
+            float dx = cosf(worm->fShootAngle);
+            float dy = sinf(worm->fShootAngle);
+
+            // Create Weapon Object
+            Missile *m = new Missile(ox, oy, dx * 40.0f * fEnergyLevel, dy * 40.0f * fEnergyLevel);
+            pCameraTrackingObject = m;
+            listObjects.push_back(std::unique_ptr<Missile>(m));
+
+            // Reset flags involved with firing weapon
+            bFireWeapon = false;
+            fEnergyLevel = 0.0f;
+            bEnergising = false;
+            bPlayerHasFired = true;
+
+            if (rand() % 100 >= 50)
+                bZoomOut = true;
+        }
     }
 
 
@@ -563,11 +878,15 @@ void GameScene::CreateMap()
             if (y >= fSurface[x] * nMapHeight)
             {
                 map[y * nMapWidth + x] = 1;
-                //qDebug() << "Jest 1 Create map";
             }
             else
             {
-                map[y * nMapWidth + x] = 0;
+                // Shade the sky according to altitude - we only do top 1/3 of map
+                // as the Boom() function will just paint in 0 (cyan)
+//                if ((float)y < (float)nMapHeight / 3.0f)
+//                    map[y * nMapWidth + x] = (-8.0f * ((float)y / (nMapHeight / 3.0f))) -1.0f;
+//                else
+                    map[y * nMapWidth + x] = 0;
             }
         }
 
@@ -605,27 +924,45 @@ void GameScene::PerlinNoise1D(int nCount, float *fSeed, int nOctaves, float fBia
 void GameScene::drawLandscape()
 {
     // Draw Landscape
-    for (int x = 0; x < SCREEN::LOGICAL_SIZE.width(); x++)
+    if(!bZoomOut)
     {
-        for (int y = 0; y < SCREEN::LOGICAL_SIZE.height(); y++)
+        //50 60 118
+        //62 78 137
+        //74 97 146
+        //92 130 164
+        //117 164 191
+        //134 183 200
+        //160 210 228
+        //197 240 255
+
+        for (int x = 0; x < SCREEN::LOGICAL_SIZE.width(); x++)
         {
-            // Offset screen coordinates into world coordinates
-            switch (map[(y + (int)fCameraPosY)*nMapWidth + (x + (int)fCameraPosX)])
+            for (int y = 0; y < SCREEN::LOGICAL_SIZE.height(); y++)
             {
-            case 0:
-                m_image.setPixelColor(x, y, QColor(Qt::cyan));
-                break;
-            case 1:
-                m_image.setPixelColor(x, y, QColor(Qt::darkGreen));
-                break;
+                // Offset screen coordinates into world coordinates
+                switch (map[(y + (int)fCameraPosY)*nMapWidth + (x + (int)fCameraPosX)])
+                {
+                case -1:m_image.setPixelColor(x, y, QColor(50, 60, 118)); break;
+                case -2:m_image.setPixelColor(x, y, QColor(62, 78, 137)); break;
+                case -3:m_image.setPixelColor(x, y, QColor(74, 97, 146)); break;
+                case -4:m_image.setPixelColor(x, y, QColor(92, 130, 164)); break;
+                case -5:m_image.setPixelColor(x, y, QColor(117, 164, 191)); break;
+                case -6:m_image.setPixelColor(x, y, QColor(134, 183, 200)); break;
+                case -7:m_image.setPixelColor(x, y, QColor(160, 210, 228)); break;
+                case -8:m_image.setPixelColor(x, y, QColor(197, 240, 255)); break;
+                case 0: m_image.setPixelColor(x, y, QColor(Qt::cyan));  break;
+                case 1:	m_image.setPixelColor(x, y, QColor(Qt::darkGreen)); break;
+
+                }
             }
         }
+
+        QGraphicsPixmapItem* pItem = new QGraphicsPixmapItem();
+        pItem->setPixmap(QPixmap::fromImage(m_image.scaled(SCREEN::PHYSICAL_SIZE)));
+        pItem->setZValue(LAYER::BG);
+        addItem(pItem);
     }
 
-    QGraphicsPixmapItem* pItem = new QGraphicsPixmapItem();
-    pItem->setPixmap(QPixmap::fromImage(m_image.scaled(SCREEN::PHYSICAL_SIZE)));
-    pItem->setZValue(LAYER::BG);
-    addItem(pItem);
 }
 
 QPoint GameScene::mousePosition() const

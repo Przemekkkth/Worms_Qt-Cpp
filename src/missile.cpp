@@ -17,7 +17,7 @@ Missile::Missile(float x, float y, float _vx, float _vy)
     nBounceBeforeDeath = 1;
 }
 
-void Missile::Draw(GameScene *scene, float fOffsetX, float fOffsetY)
+void Missile::Draw(GameScene *scene, float fOffsetX, float fOffsetY, bool bPixel)
 {
     //QPolygon polygon;
     QList<QPoint> points;
@@ -35,7 +35,9 @@ void Missile::Draw(GameScene *scene, float fOffsetX, float fOffsetY)
     //pItem->setPos(px, py);
     pItem->setRotation(std::atan2(vy, vx)* (180.0f / 3.14159f));
 
-    pItem->setScale(radius*SCREEN::CELL_SIZE.width()/2.0f);
+    float factorScale = radius*SCREEN::CELL_SIZE.width()/2.0f;
+    float pixelScale = 0.5f*SCREEN::CELL_SIZE.width()/2.0f;
+    pItem->setScale(bPixel ? pixelScale : factorScale);
     pItem->setPen(QPen(QColor(Qt::yellow)));
     pItem->setBrush(QBrush(QColor(Qt::yellow)));
     scene->addItem(pItem);

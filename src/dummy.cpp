@@ -21,7 +21,7 @@ Dummy::~Dummy()
 
 }
 
-void Dummy::Draw(GameScene *scene, float fOffsetX, float fOffsetY)
+void Dummy::Draw(GameScene *scene, float fOffsetX, float fOffsetY, bool bPixel)
 {
     //engine->DrawWireFrameModel(vecModel, px - fOffsetX, py - fOffsetY, atan2f(vy, vx), radius, FG_WHITE);
     //QPolygon polygon;
@@ -40,7 +40,9 @@ void Dummy::Draw(GameScene *scene, float fOffsetX, float fOffsetY)
     //pItem->setPos(px, py);
     pItem->setRotation(std::atan2(vy, vx)* (180.0f / 3.14159f));
 
-    pItem->setScale(radius*SCREEN::CELL_SIZE.width()/2.0f);
+    float factorScale = radius*SCREEN::CELL_SIZE.width()/2.0f;
+    float pixelScale = 0.5f*SCREEN::CELL_SIZE.width()/2.0f;
+    pItem->setScale(bPixel ? pixelScale : factorScale);
     pItem->setPen(QPen(QColor(Qt::white)));
     scene->addItem(pItem);
 }
