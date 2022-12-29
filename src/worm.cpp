@@ -16,17 +16,18 @@ Worm::Worm(float x, float y)
 
 void Worm::Draw(GameScene *scene, float fOffsetX, float fOffsetY, bool bPixel)
 {
+    int scalePixmap = bPixel ? 4 : 8;
+    if(bPixel)
+    {
+        radius = 1.65f;
+    }
+    else
+    {
+        radius = 3.3f;
+    }
+    ///////////////////////////////
     if(bIsPlayable)
     {
-        int scalePixmap = bPixel ? 4 : 8;
-        if(bPixel)
-        {
-            radius = 1.65f;
-        }
-        else
-        {
-            radius = 3.3f;
-        }
         QGraphicsPixmapItem* pItem = new QGraphicsPixmapItem();
         if(fShootAngle >= -3.14/2 && fShootAngle <= 3.14/2)
             pItem->setPixmap(m_pixmap.scaled(scalePixmap*SCREEN::CELL_SIZE.width(),
@@ -44,6 +45,12 @@ void Worm::Draw(GameScene *scene, float fOffsetX, float fOffsetY, bool bPixel)
     else
     {
         //Timbersone
+        QGraphicsPixmapItem* pItem = new QGraphicsPixmapItem();
+        pItem->setPixmap(m_timberStonePix.scaled(scalePixmap*SCREEN::CELL_SIZE.width(),
+                                     scalePixmap*SCREEN::CELL_SIZE.height()));
+        QPoint p = QPoint(px - fOffsetX - radius, py - fOffsetY - radius);
+        pItem->setPos(int(p.x()*SCREEN::CELL_SIZE.width()), int(p.y()*SCREEN::CELL_SIZE.height()));
+        scene->addItem(pItem);
     }
 }
 
@@ -68,18 +75,22 @@ void Worm::setTeam(int nT)
     if(nT == 0)
     {
         m_pixmap = PixmapManager::Instance()->getPixmap(PixmapManager::TextureID::Worm_Green);
+        m_timberStonePix = PixmapManager::Instance()->getPixmap(PixmapManager::TextureID::Timberstone_Green);
     }
     else if(nT == 1)
     {
         m_pixmap = PixmapManager::Instance()->getPixmap(PixmapManager::TextureID::Worm_Purple);
+        m_timberStonePix = PixmapManager::Instance()->getPixmap(PixmapManager::TextureID::Timberstone_Purple);
     }
     else if(nT == 2)
     {
         m_pixmap = PixmapManager::Instance()->getPixmap(PixmapManager::TextureID::Worm_Blue);
+        m_timberStonePix = PixmapManager::Instance()->getPixmap(PixmapManager::TextureID::Timberstone_Blue);
     }
     else if(nT == 3)
     {
         m_pixmap = PixmapManager::Instance()->getPixmap(PixmapManager::TextureID::Worm_Red);
+        m_timberStonePix = PixmapManager::Instance()->getPixmap(PixmapManager::TextureID::Timberstone_Red);
     }
     nTeam = nT;
 }

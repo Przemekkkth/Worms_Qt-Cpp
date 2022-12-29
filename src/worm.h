@@ -19,6 +19,7 @@ public:
 private:
     int nTeam = 0;	// ID of which team this worm belongs to
     QPixmap m_pixmap;
+    QPixmap m_timberStonePix;
 };
 
 #endif // WORM_H
