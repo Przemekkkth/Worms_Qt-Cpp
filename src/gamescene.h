@@ -47,7 +47,7 @@ private:
     //Terrain size
     int nMapWidth  = 1024;
     int nMapHeight = 512;
-    unsigned char *map = nullptr;
+    char *map = nullptr;
     // Camera coordinates
     float fCameraPosX = 0.0f;
     float fCameraPosY = 0.0f;

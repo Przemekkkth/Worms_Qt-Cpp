@@ -12,10 +12,9 @@
 #include "worm.h"
 
 GameScene::GameScene(QObject *parent)
-    : QGraphicsScene(parent), map(new unsigned char[nMapWidth * nMapHeight])
+    : QGraphicsScene(parent), map(new char[nMapWidth * nMapHeight])
 {
     //map = new unsigned char[nMapWidth * nMapHeight];
-    map = new unsigned char[nMapWidth * nMapHeight];
     memset(map, 0, nMapWidth*nMapHeight * sizeof(unsigned char));
 
     nGameState = GS_RESET;
@@ -414,7 +413,7 @@ void GameScene::setCamera()
             // Once cursors are aligned, fire - some noise could be
             // included here to give the AI a varying accuracy, and the
             // magnitude of the noise could be linked to game difficulty
-            if (fabs(worm->fShootAngle - fAITargetAngle) <= 0.001f)
+            if (fabs(worm->fShootAngle - fAITargetAngle) <= 0.01f)
             {
                 bAI_AimLeft = false;
                 bAI_AimRight = false;
@@ -585,77 +584,6 @@ void GameScene::loop()
         setCamera();
         updatePhysics();
         drawLandscape();
-        // Draw Objects
-        for (auto &p : listObjects)
-        {
-            p->Draw(this, fCameraPosX, fCameraPosY);
-            Worm* worm = (Worm*)pObjectUnderControl;
-
-            if (p.get() == worm)
-            {
-                float cx = worm->px + 8.0f * cosf(worm->fShootAngle) - fCameraPosX;
-                float cy = worm->py + 8.0f * sinf(worm->fShootAngle) - fCameraPosY;
-
-                // Draw "+" symbol
-                QGraphicsRectItem* rItem0 = new QGraphicsRectItem();
-                rItem0->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
-                rItem0->setPen(QPen(QColor(Qt::black)));
-                rItem0->setBrush(QBrush(QColor(Qt::black)));
-                rItem0->setPos(cx*SCREEN::CELL_SIZE.width(), cy*SCREEN::CELL_SIZE.height());
-                addItem(rItem0);
-
-                QGraphicsRectItem* rItem1 = new QGraphicsRectItem();
-                rItem1->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
-                rItem1->setPen(QPen(QColor(Qt::black)));
-                rItem1->setBrush(QBrush(QColor(Qt::black)));
-                rItem1->setPos((cx+1)*SCREEN::CELL_SIZE.width(), cy*SCREEN::CELL_SIZE.height());
-                addItem(rItem1);
-
-                QGraphicsRectItem* rItem2 = new QGraphicsRectItem();
-                rItem2->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
-                rItem2->setPen(QPen(QColor(Qt::black)));
-                rItem2->setBrush(QBrush(QColor(Qt::black)));
-                rItem2->setPos((cx-1)*SCREEN::CELL_SIZE.width(), cy*SCREEN::CELL_SIZE.height());
-                addItem(rItem2);
-
-                QGraphicsRectItem* rItem3 = new QGraphicsRectItem();
-                rItem3->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
-                rItem3->setPen(QPen(QColor(Qt::black)));
-                rItem3->setBrush(QBrush(QColor(Qt::black)));
-                rItem3->setPos(cx*SCREEN::CELL_SIZE.width(), (cy+1)*SCREEN::CELL_SIZE.height());
-                addItem(rItem3);
-
-                QGraphicsRectItem* rItem4 = new QGraphicsRectItem();
-                rItem4->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
-                rItem4->setPen(QPen(QColor(Qt::black)));
-                rItem4->setBrush(QBrush(QColor(Qt::black)));
-                rItem4->setPos(cx*SCREEN::CELL_SIZE.width(), (cy-1)*SCREEN::CELL_SIZE.height());
-                addItem(rItem4);
-                // Draws an Energy Bar, indicating how much energy should the weapon be
-                // fired with
-                for (int i = 0; i < 11 * fEnergyLevel; i++)
-                {
-                    QGraphicsRectItem* rItem0 = new QGraphicsRectItem();
-                    rItem0->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
-                    rItem0->setPen(QPen(QColor(Qt::green)));
-                    rItem0->setBrush(QBrush(QColor(Qt::green)));
-                    rItem0->setPos((worm->px - 5 + i - fCameraPosX)*SCREEN::CELL_SIZE.width(),
-                                   (worm->py - 12 - fCameraPosY)*SCREEN::CELL_SIZE.height());
-                    addItem(rItem0);
-
-                    QGraphicsRectItem* rItem1 = new QGraphicsRectItem();
-                    rItem1->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
-                    rItem1->setPen(QPen(QColor(Qt::red)));
-                    rItem1->setBrush(QBrush(QColor(Qt::red)));
-                    rItem1->setPos((worm->px - 5 + i - fCameraPosX)*SCREEN::CELL_SIZE.width(),
-                                   (worm->py - 11 - fCameraPosY)*SCREEN::CELL_SIZE.height());
-                    addItem(rItem1);
-
-//                    Draw(worm->px - 5 + i - fCameraPosX, worm->py - 12 - fCameraPosY, PIXEL_SOLID, FG_GREEN);
-//                    Draw(worm->px - 5 + i - fCameraPosX, worm->py - 11 - fCameraPosY, PIXEL_SOLID, FG_RED);
-                }
-            }
-        }
 
         // Check For game state stability
         bGameIsStable = true;
@@ -667,18 +595,39 @@ void GameScene::loop()
             }
 
         // DEBUG Feature: Indicate Game Stability
-        if (bGameIsStable)
+        // Draw Team Health Bars
+        for (size_t t = 0; t < vecTeams.size(); t++)
         {
+            float fTotalHealth = 0.0f;
+            float fMaxHealth = (float)vecTeams[t].nTeamSize;
+            for (auto w : vecTeams[t].vecMembers) // Accumulate team health
+                fTotalHealth += w->fHealth;
+
+            QColor cols[] = { Qt::green, QColor(230,230,250), Qt::blue, Qt::red };
             QGraphicsRectItem* rItem = new QGraphicsRectItem();
-            rItem->setPen(QColor(Qt::red));
-            rItem->setBrush(QColor(Qt::red));
-            rItem->setPos(2*SCREEN::CELL_SIZE.width(), 2*SCREEN::CELL_SIZE.height());
-            rItem->setRect(0,0, 6*SCREEN::CELL_SIZE.width(), 6*SCREEN::CELL_SIZE.height());
+            rItem->setPos(4*SCREEN::CELL_SIZE.width(), (4 + t * 4)*SCREEN::CELL_SIZE.height());
+            rItem->setRect(0,0,
+             ((fTotalHealth / fMaxHealth) * (float)(SCREEN::LOGICAL_SIZE.width() - 8) + 4)*SCREEN::CELL_SIZE.width(),
+                           10);
+            rItem->setPen(cols[t]);
+            rItem->setBrush(cols[t]);
             addItem(rItem);
         }
-
+        if (bShowCountDown)
+        {
+            QGraphicsSimpleTextItem *tItem = new QGraphicsSimpleTextItem();
+            tItem->setText(QString::number(fTurnTime, 'g', 2));
+            QFont font = tItem->font();
+            font.setPixelSize(25);
+            tItem->setFont(font);
+            tItem->setPos(15, 75);
+            tItem->setPen(QColor(Qt::white));
+            tItem->setBrush(QColor(Qt::white));
+            addItem(tItem);
+        }
         // Update State Machine
         nGameState = nNextState;
+        nAIState = nAINextState;
 
         resetStatus();
     }
@@ -688,7 +637,6 @@ void GameScene::boom(float fWorldX, float fWorldY, float fRadius)
 {
     auto CircleBresenham = [&](int xc, int yc, int r)
     {
-        // Taken from wikipedia
         int x = 0;
         int y = r;
         int p = 3 - 2 * r;
@@ -697,15 +645,13 @@ void GameScene::boom(float fWorldX, float fWorldY, float fRadius)
         auto drawline = [&](int sx, int ex, int ny)
         {
             for (int i = sx; i < ex; i++)
-                if (ny >= 0 && ny < nMapHeight && i >= 0 && i < nMapWidth)
-                {
+                if(ny >=0 && ny < nMapHeight && i >=0 && i < nMapWidth)
                     map[ny*nMapWidth + i] = 0;
-                }
         };
 
-        while (y >= x)
+        while (y >= x) // only formulate 1/8 of circle
         {
-            // Modified to draw scan-lines instead of edges
+            //Filled Circle
             drawline(xc - x, xc + x, yc - y);
             drawline(xc - y, xc + y, yc - x);
             drawline(xc - x, xc + x, yc + y);
@@ -715,28 +661,27 @@ void GameScene::boom(float fWorldX, float fWorldY, float fRadius)
         }
     };
 
+    int bx = (int)fWorldX;
+    int by = (int)fWorldY;
+
     // Erase Terrain to form crater
     CircleBresenham(fWorldX, fWorldY, fRadius);
 
     // Shockwave other entities in range
     for (auto &p : listObjects)
     {
-        // Work out distance between explosion origin and object
         float dx = p->px - fWorldX;
         float dy = p->py - fWorldY;
         float fDist = sqrt(dx*dx + dy*dy);
         if (fDist < 0.0001f) fDist = 0.0001f;
-
-        // If within blast radius
         if (fDist < fRadius)
         {
-            // Set velocity proportional and away from boom origin
             p->vx = (dx / fDist) * fRadius;
             p->vy = (dy / fDist) * fRadius;
+            p->Damege(((fRadius - fDist) / fRadius) * 0.8f); // Corrected ;)
             p->bStable = false;
         }
     }
-
     // Launch debris proportional to blast size
     for (int i = 0; i < (int)fRadius; i++)
         listObjects.push_back(std::unique_ptr<Debris>(new Debris(fWorldX, fWorldY)));
@@ -788,7 +733,7 @@ void GameScene::updatePhysics()
                 if (fTestPosY < 0) fTestPosY = 0;
 
                 // Test if any points on semicircle intersect with terrain
-                if (map[(int)fTestPosY * nMapWidth + (int)fTestPosX] != 0)
+                if (map[(int)fTestPosY * nMapWidth + (int)fTestPosX] > 0)
                 {
                     // Accumulate collision points to give an escape response vector
                     // Effectively, normal to the areas of contact
@@ -869,7 +814,7 @@ void GameScene::CreateMap()
     fNoiseSeed[0] = 0.5f;
 
     // Generate 1D map
-    PerlinNoise1D(nMapWidth, fNoiseSeed, 10, 2.0f, fSurface);
+    PerlinNoise1D(nMapWidth, fNoiseSeed, 8, 2.0f, fSurface);
 
     // Fill 2D map based on adjacent 1D map
     for (int x = 0; x < nMapWidth; x++)
@@ -883,9 +828,9 @@ void GameScene::CreateMap()
             {
                 // Shade the sky according to altitude - we only do top 1/3 of map
                 // as the Boom() function will just paint in 0 (cyan)
-//                if ((float)y < (float)nMapHeight / 3.0f)
-//                    map[y * nMapWidth + x] = (-8.0f * ((float)y / (nMapHeight / 3.0f))) -1.0f;
-//                else
+                if ((float)y < (float)nMapHeight / 3.0f)
+                    map[y * nMapWidth + x] = (-8.0f * ((float)y / (nMapHeight / 3.0f))) -1.0f;
+                else
                     map[y * nMapWidth + x] = 0;
             }
         }
@@ -961,8 +906,106 @@ void GameScene::drawLandscape()
         pItem->setPixmap(QPixmap::fromImage(m_image.scaled(SCREEN::PHYSICAL_SIZE)));
         pItem->setZValue(LAYER::BG);
         addItem(pItem);
-    }
+        for (auto &p : listObjects)
+        {
+            p->Draw(this, fCameraPosX, fCameraPosY);
+            Worm* worm = (Worm*)pObjectUnderControl;
 
+            if (p.get() == worm)
+            {
+                float cx = worm->px + 8.0f * cosf(worm->fShootAngle) - fCameraPosX;
+                float cy = worm->py + 8.0f * sinf(worm->fShootAngle) - fCameraPosY;
+
+                // Draw "+" symbol
+                QGraphicsRectItem* rItem0 = new QGraphicsRectItem();
+                rItem0->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
+                rItem0->setPen(QPen(QColor(Qt::black)));
+                rItem0->setBrush(QBrush(QColor(Qt::black)));
+                rItem0->setPos(cx*SCREEN::CELL_SIZE.width(), cy*SCREEN::CELL_SIZE.height());
+                addItem(rItem0);
+
+                QGraphicsRectItem* rItem1 = new QGraphicsRectItem();
+                rItem1->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
+                rItem1->setPen(QPen(QColor(Qt::black)));
+                rItem1->setBrush(QBrush(QColor(Qt::black)));
+                rItem1->setPos((cx+1)*SCREEN::CELL_SIZE.width(), cy*SCREEN::CELL_SIZE.height());
+                addItem(rItem1);
+
+                QGraphicsRectItem* rItem2 = new QGraphicsRectItem();
+                rItem2->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
+                rItem2->setPen(QPen(QColor(Qt::black)));
+                rItem2->setBrush(QBrush(QColor(Qt::black)));
+                rItem2->setPos((cx-1)*SCREEN::CELL_SIZE.width(), cy*SCREEN::CELL_SIZE.height());
+                addItem(rItem2);
+
+                QGraphicsRectItem* rItem3 = new QGraphicsRectItem();
+                rItem3->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
+                rItem3->setPen(QPen(QColor(Qt::black)));
+                rItem3->setBrush(QBrush(QColor(Qt::black)));
+                rItem3->setPos(cx*SCREEN::CELL_SIZE.width(), (cy+1)*SCREEN::CELL_SIZE.height());
+                addItem(rItem3);
+
+                QGraphicsRectItem* rItem4 = new QGraphicsRectItem();
+                rItem4->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
+                rItem4->setPen(QPen(QColor(Qt::black)));
+                rItem4->setBrush(QBrush(QColor(Qt::black)));
+                rItem4->setPos(cx*SCREEN::CELL_SIZE.width(), (cy-1)*SCREEN::CELL_SIZE.height());
+                addItem(rItem4);
+                // Draws an Energy Bar, indicating how much energy should the weapon be
+                // fired with
+                for (int i = 0; i < 11 * fEnergyLevel; i++)
+                {
+                    QGraphicsRectItem* rItem0 = new QGraphicsRectItem();
+                    rItem0->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
+                    rItem0->setPen(QPen(QColor(Qt::green)));
+                    rItem0->setBrush(QBrush(QColor(Qt::green)));
+                    rItem0->setPos((worm->px - 5 + i - fCameraPosX)*SCREEN::CELL_SIZE.width(),
+                                   (worm->py - 12 - fCameraPosY)*SCREEN::CELL_SIZE.height());
+                    addItem(rItem0);
+
+                    QGraphicsRectItem* rItem1 = new QGraphicsRectItem();
+                    rItem1->setRect(0,0, SCREEN::CELL_SIZE.width(),SCREEN::CELL_SIZE.height());
+                    rItem1->setPen(QPen(QColor(Qt::red)));
+                    rItem1->setBrush(QBrush(QColor(Qt::red)));
+                    rItem1->setPos((worm->px - 5 + i - fCameraPosX)*SCREEN::CELL_SIZE.width(),
+                                   (worm->py - 11 - fCameraPosY)*SCREEN::CELL_SIZE.height());
+                    addItem(rItem1);
+
+//                    Draw(worm->px - 5 + i - fCameraPosX, worm->py - 12 - fCameraPosY, PIXEL_SOLID, FG_GREEN);
+//                    Draw(worm->px - 5 + i - fCameraPosX, worm->py - 11 - fCameraPosY, PIXEL_SOLID, FG_RED);
+                }
+            }
+        }
+    }
+    else{
+        for (int x = 0; x < SCREEN::LOGICAL_SIZE.width(); x++)
+            for (int y = 0; y < SCREEN::LOGICAL_SIZE.height(); y++)
+            {
+                float fx = (float)x/(float)SCREEN::LOGICAL_SIZE.width() * (float)nMapWidth;
+                float fy = (float)y/(float)SCREEN::LOGICAL_SIZE.height() * (float)nMapHeight;
+
+                switch (map[((int)fy)*nMapWidth + ((int)fx)])
+                {
+                case -1:m_image.setPixelColor(x, y, QColor(50, 60, 118)); break;
+                case -2:m_image.setPixelColor(x, y, QColor(62, 78, 137)); break;
+                case -3:m_image.setPixelColor(x, y, QColor(74, 97, 146)); break;
+                case -4:m_image.setPixelColor(x, y, QColor(92, 130, 164)); break;
+                case -5:m_image.setPixelColor(x, y, QColor(117, 164, 191)); break;
+                case -6:m_image.setPixelColor(x, y, QColor(134, 183, 200)); break;
+                case -7:m_image.setPixelColor(x, y, QColor(160, 210, 228)); break;
+                case -8:m_image.setPixelColor(x, y, QColor(197, 240, 255)); break;
+                case 0: m_image.setPixelColor(x, y, QColor(Qt::cyan));  break;
+                case 1:	m_image.setPixelColor(x, y, QColor(Qt::darkGreen)); break;
+                }
+            }
+        QGraphicsPixmapItem* pItem = new QGraphicsPixmapItem();
+        pItem->setPixmap(QPixmap::fromImage(m_image.scaled(SCREEN::PHYSICAL_SIZE)));
+        pItem->setZValue(LAYER::BG);
+        addItem(pItem);
+        for (auto &p : listObjects)
+                        p->Draw(this, p->px-(p->px / (float)nMapWidth) * (float)SCREEN::LOGICAL_SIZE.width(),
+                            p->py-(p->py / (float)nMapHeight) * (float)SCREEN::LOGICAL_SIZE.height(), true);
+    }
 }
 
 QPoint GameScene::mousePosition() const
