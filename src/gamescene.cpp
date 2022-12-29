@@ -607,7 +607,7 @@ void GameScene::loop()
             QGraphicsRectItem* rItem = new QGraphicsRectItem();
             rItem->setPos(4*SCREEN::CELL_SIZE.width(), (4 + t * 4)*SCREEN::CELL_SIZE.height());
             rItem->setRect(0,0,
-             ((fTotalHealth / fMaxHealth) * (float)(SCREEN::LOGICAL_SIZE.width() - 8) + 4)*SCREEN::CELL_SIZE.width(),
+             ((fTotalHealth / fMaxHealth) * (float)(SCREEN::LOGICAL_SIZE.width() - 8) + 1)*SCREEN::CELL_SIZE.width(),
                            10);
             rItem->setPen(cols[t]);
             rItem->setBrush(cols[t]);
