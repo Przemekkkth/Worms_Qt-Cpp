@@ -12,7 +12,7 @@ Worm::Worm(float x, float y)
     bDead = false;
     nBounceBeforeDeath = -1;
 
-    m_pixmap = PixmapManager::Instance()->getPixmap(PixmapManager::TextureID::Worm_Red);
+    //m_pixmap = PixmapManager::Instance()->getPixmap(PixmapManager::TextureID::Worm_Red);
 }
 
 void Worm::Draw(GameScene *scene, float fOffsetX, float fOffsetY, bool bPixel)
@@ -69,7 +69,7 @@ void Worm::setTeam(int nT)
     {
         m_pixmap = PixmapManager::Instance()->getPixmap(PixmapManager::TextureID::Worm_Blue);
     }
-    else
+    else if(nT == 3)
     {
         m_pixmap = PixmapManager::Instance()->getPixmap(PixmapManager::TextureID::Worm_Red);
     }

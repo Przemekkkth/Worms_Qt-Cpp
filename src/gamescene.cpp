@@ -413,7 +413,7 @@ void GameScene::setCamera()
             // Once cursors are aligned, fire - some noise could be
             // included here to give the AI a varying accuracy, and the
             // magnitude of the noise could be linked to game difficulty
-            if (fabs(worm->fShootAngle - fAITargetAngle) <= 0.01f)
+            if (fabs(worm->fShootAngle - fAITargetAngle) <= 0.1f)
             {
                 bAI_AimLeft = false;
                 bAI_AimRight = false;
