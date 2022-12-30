@@ -1,15 +1,17 @@
 #include "gamescene.h"
-#include <QKeyEvent>
-#include <QGraphicsSceneMouseEvent>
-#include <QGraphicsPixmapItem>
-#include <QGraphicsLineItem>
-#include <QDebug>
 #include "utils.h"
 #include "pixmapmanager.h"
 #include "debris.h"
 #include "dummy.h"
 #include "missile.h"
 #include "worm.h"
+#include <QKeyEvent>
+#include <QGraphicsSceneMouseEvent>
+#include <QGraphicsPixmapItem>
+#include <QGraphicsLineItem>
+#include <QDebug>
+#include <QDir>
+#include <QPainter>
 
 GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent), map(new char[nMapWidth * nMapHeight])
@@ -631,6 +633,19 @@ void GameScene::updateStateMachine()
     nAIState = nAINextState;
 }
 
+void GameScene::renderGameScene()
+{
+    static int index = 0;
+    QString fileName = QDir::currentPath() + QDir::separator() + "screen" + QString::number(index++) + ".png";
+    QRect rect = sceneRect().toAlignedRect();
+    QImage image(rect.size(), QImage::Format_ARGB32);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    render(&painter);
+    image.save(fileName);
+    qDebug() << "saved " << fileName;
+}
+
 void GameScene::loop()
 {
     m_deltaTime = m_elapsedTimer.elapsed();
@@ -1044,6 +1059,10 @@ void GameScene::handlePlayerInput()
     if(m_keys[KEYBOARD::KEY_TAB]->m_released)
     {
         bZoomOut = !bZoomOut;
+    }
+    if(m_keys[KEYBOARD::KEY_O]->m_released)
+    {
+        renderGameScene();
     }
 }
 

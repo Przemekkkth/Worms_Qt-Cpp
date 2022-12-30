@@ -56,6 +56,7 @@ private:
     void drawTeamHealthBars();
     void drawCounter();
     void updateStateMachine();
+    void renderGameScene();
     //Terrain size
     int nMapWidth  = 1024;
     int nMapHeight = 512;
