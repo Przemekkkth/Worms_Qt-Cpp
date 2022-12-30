@@ -59,7 +59,7 @@ int Worm::BounceDeathAction()
     return 0;
 }
 
-bool Worm::Damege(float d)
+bool Worm::Damage(float d)
 {
     fHealth -= d;
     if (fHealth <= 0)

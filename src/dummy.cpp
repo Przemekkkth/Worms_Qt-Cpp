@@ -52,7 +52,7 @@ int Dummy::BounceDeathAction()
     return 0;
 }
 
-bool Dummy::Damege(float d)
+bool Dummy::Damage(float d)
 {
     return true;
 }

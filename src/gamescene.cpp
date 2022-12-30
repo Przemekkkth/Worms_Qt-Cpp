@@ -28,7 +28,7 @@ GameScene::GameScene(QObject *parent)
     m_image.fill(QColor(Qt::black));
 
 
-    drawLandscape();
+    drawLandscapeAndObjects();
     for(int i = 0; i < 256; ++i)
     {
         m_keys[i] = new KeyStatus();
@@ -48,22 +48,19 @@ void GameScene::setMousePosition(QPoint newPos)
     }
 }
 
-void GameScene::setCamera()
+void GameScene::mouseEdgeMapScroll()
 {
-    float fElapsedTime = 1.0f/m_loopSpeed;
-    if(m_keys[KEYBOARD::KEY_T]->m_released)
-    {
-        bZoomOut = !bZoomOut;
-    }
-
     // Mouse Edge Map Scroll
+    float fElapsedTime = 1.0f/m_loopSpeed;
     float fMapScrollSpeed = 400.0f;
     if (m_mousePosition.x() < 10) fCameraPosX -= fMapScrollSpeed * fElapsedTime;
     if (m_mousePosition.x() > SCREEN::PHYSICAL_SIZE.width() - 10) fCameraPosX += fMapScrollSpeed * fElapsedTime;
     if (m_mousePosition.y() < 10) fCameraPosY -= fMapScrollSpeed * fElapsedTime;
     if (m_mousePosition.y() > SCREEN::PHYSICAL_SIZE.height() - 10) fCameraPosY += fMapScrollSpeed * fElapsedTime;
+}
 
-    // Control Supervisor
+void GameScene::controlSupervisor()
+{
     switch (nGameState)
     {
     case GS_RESET: // Set game variables to know state
@@ -79,7 +76,7 @@ void GameScene::setCamera()
     case GS_GENERATE_TERRAIN: // Create a new terrain
     {
         bZoomOut = true;
-        CreateMap();
+        createMap();
         bGameIsStable = false;
         bShowCountDown = false;
         nNextState = GS_GENERATING_TERRAIN;
@@ -232,8 +229,10 @@ void GameScene::setCamera()
     }
     break;
     }
+}
 
-    // AI State Machine
+void GameScene::handleAIStateMachine()
+{
     if (bEnableComputerControl)
     {
         switch (nAIState)
@@ -444,10 +443,19 @@ void GameScene::setCamera()
 
         }
     }
+}
+
+void GameScene::decreaseTurnTime()
+{
+    float fElapsedTime = 1.0f/m_loopSpeed;
 
     // Decrease Turn Time
     fTurnTime -= fElapsedTime;
+}
 
+void GameScene::handleObjectUnderControl()
+{
+    float fElapsedTime = 1.0f/m_loopSpeed;
     if (pObjectUnderControl != nullptr)
     {
         pObjectUnderControl->ax = 0.0f;
@@ -545,9 +553,10 @@ void GameScene::setCamera()
                 bZoomOut = true;
         }
     }
+}
 
-
-    // Clamp map boundaries
+void GameScene::clampMapBoundaries()
+{
     if (fCameraPosX < 0)
     {
         fCameraPosX = 0;
@@ -566,6 +575,62 @@ void GameScene::setCamera()
     }
 }
 
+void GameScene::checkGameStateStability()
+{
+    bGameIsStable = true;
+    for (auto &p : listObjects)
+    {
+        if (!p->bStable)
+        {
+            bGameIsStable = false;
+            break;
+        }
+    }
+}
+
+void GameScene::drawTeamHealthBars()
+{
+    for (size_t t = 0; t < vecTeams.size(); t++)
+    {
+        float fTotalHealth = 0.0f;
+        float fMaxHealth = (float)vecTeams[t].nTeamSize;
+        for (auto w : vecTeams[t].vecMembers) // Accumulate team health
+            fTotalHealth += w->fHealth;
+
+        QColor cols[] = { Qt::green, QColor(102, 0, 51), Qt::blue, Qt::red };
+        QGraphicsRectItem* rItem = new QGraphicsRectItem();
+        rItem->setPos(4*SCREEN::CELL_SIZE.width(), (4 + t * 4)*SCREEN::CELL_SIZE.height());
+        rItem->setRect(0,0,
+         ((fTotalHealth / fMaxHealth) * (float)(SCREEN::LOGICAL_SIZE.width() - 8) + 1)*SCREEN::CELL_SIZE.width(),
+                       10);
+        rItem->setPen(cols[t]);
+        rItem->setBrush(cols[t]);
+        addItem(rItem);
+    }
+}
+
+void GameScene::drawCounter()
+{
+    if (bShowCountDown)
+    {
+        QGraphicsSimpleTextItem *tItem = new QGraphicsSimpleTextItem();
+        tItem->setText(QString::number(fTurnTime, 'g', 2));
+        QFont font = tItem->font();
+        font.setPixelSize(25);
+        tItem->setFont(font);
+        tItem->setPos(15, 75);
+        tItem->setPen(QColor(Qt::white));
+        tItem->setBrush(QColor(Qt::white));
+        addItem(tItem);
+    }
+}
+
+void GameScene::updateStateMachine()
+{
+    nGameState = nNextState;
+    nAIState = nAINextState;
+}
+
 void GameScene::loop()
 {
     m_deltaTime = m_elapsedTimer.elapsed();
@@ -575,60 +640,21 @@ void GameScene::loop()
     if( m_loopTime > m_loopSpeed)
     {
         m_loopTime -= m_loopSpeed;
-
         handlePlayerInput();
-
-
         clear();
-        m_image.fill(Qt::yellow);
-        setCamera();
+        m_image.fill(Qt::black);
+        mouseEdgeMapScroll();
+        controlSupervisor();
+        handleAIStateMachine();
+        decreaseTurnTime();
+        handleObjectUnderControl();
+        clampMapBoundaries();
         updatePhysics();
-        drawLandscape();
-
-        // Check For game state stability
-        bGameIsStable = true;
-        for (auto &p : listObjects)
-            if (!p->bStable)
-            {
-                bGameIsStable = false;
-                break;
-            }
-
-        // DEBUG Feature: Indicate Game Stability
-        // Draw Team Health Bars
-        for (size_t t = 0; t < vecTeams.size(); t++)
-        {
-            float fTotalHealth = 0.0f;
-            float fMaxHealth = (float)vecTeams[t].nTeamSize;
-            for (auto w : vecTeams[t].vecMembers) // Accumulate team health
-                fTotalHealth += w->fHealth;
-
-            QColor cols[] = { Qt::green, QColor(230,230,250), Qt::blue, Qt::red };
-            QGraphicsRectItem* rItem = new QGraphicsRectItem();
-            rItem->setPos(4*SCREEN::CELL_SIZE.width(), (4 + t * 4)*SCREEN::CELL_SIZE.height());
-            rItem->setRect(0,0,
-             ((fTotalHealth / fMaxHealth) * (float)(SCREEN::LOGICAL_SIZE.width() - 8) + 1)*SCREEN::CELL_SIZE.width(),
-                           10);
-            rItem->setPen(cols[t]);
-            rItem->setBrush(cols[t]);
-            addItem(rItem);
-        }
-        if (bShowCountDown)
-        {
-            QGraphicsSimpleTextItem *tItem = new QGraphicsSimpleTextItem();
-            tItem->setText(QString::number(fTurnTime, 'g', 2));
-            QFont font = tItem->font();
-            font.setPixelSize(25);
-            tItem->setFont(font);
-            tItem->setPos(15, 75);
-            tItem->setPen(QColor(Qt::white));
-            tItem->setBrush(QColor(Qt::white));
-            addItem(tItem);
-        }
-        // Update State Machine
-        nGameState = nNextState;
-        nAIState = nAINextState;
-
+        drawLandscapeAndObjects();
+        checkGameStateStability();
+        drawTeamHealthBars();
+        drawCounter();
+        updateStateMachine();
         resetStatus();
     }
 }
@@ -678,7 +704,7 @@ void GameScene::boom(float fWorldX, float fWorldY, float fRadius)
         {
             p->vx = (dx / fDist) * fRadius;
             p->vy = (dy / fDist) * fRadius;
-            p->Damege(((fRadius - fDist) / fRadius) * 0.8f); // Corrected ;)
+            p->Damage(((fRadius - fDist) / fRadius) * 0.8f); // Corrected ;)
             p->bStable = false;
         }
     }
@@ -800,7 +826,7 @@ void GameScene::updatePhysics()
     }
 }
 
-void GameScene::CreateMap()
+void GameScene::createMap()
 {
     // Used 1D Perlin Noise
     float *fSurface = new float[nMapWidth];
@@ -814,7 +840,7 @@ void GameScene::CreateMap()
     fNoiseSeed[0] = 0.5f;
 
     // Generate 1D map
-    PerlinNoise1D(nMapWidth, fNoiseSeed, 8, 2.0f, fSurface);
+    perlinNoise1D(nMapWidth, fNoiseSeed, 8, 2.0f, fSurface);
 
     // Fill 2D map based on adjacent 1D map
     for (int x = 0; x < nMapWidth; x++)
@@ -840,7 +866,7 @@ void GameScene::CreateMap()
     delete[] fNoiseSeed;
 }
 
-void GameScene::PerlinNoise1D(int nCount, float *fSeed, int nOctaves, float fBias, float *fOutput)
+void GameScene::perlinNoise1D(int nCount, float *fSeed, int nOctaves, float fBias, float *fOutput)
 {
     // Used 1D Perlin Noise
     for (int x = 0; x < nCount; x++)
@@ -866,7 +892,7 @@ void GameScene::PerlinNoise1D(int nCount, float *fSeed, int nOctaves, float fBia
     }
 }
 
-void GameScene::drawLandscape()
+void GameScene::drawLandscapeAndObjects()
 {
     // Draw Landscape
     if(!bZoomOut)
@@ -1015,29 +1041,9 @@ QPoint GameScene::mousePosition() const
 
 void GameScene::handlePlayerInput()
 {
-    if(m_mouse->m_released)
+    if(m_keys[KEYBOARD::KEY_TAB]->m_released)
     {
-        boom((m_mousePosition.x()/SCREEN::CELL_SIZE.width()) + fCameraPosX, (m_mousePosition.y()/SCREEN::CELL_SIZE.height()) + fCameraPosY, 10.0f);
-    }
-    if(m_keys[KEYBOARD::KEY_1]->m_released)
-    {
-        listObjects.push_back(std::unique_ptr<Dummy>(new Dummy((m_mousePosition.x()/SCREEN::CELL_SIZE.width()) + fCameraPosX, (m_mousePosition.y()/SCREEN::CELL_SIZE.height()) + fCameraPosY)));
-    }
-    if(m_keys[KEYBOARD::KEY_2]->m_released)
-    {
-        listObjects.push_back(std::unique_ptr<Missile>(new Missile((m_mousePosition.x()/SCREEN::CELL_SIZE.width()) + fCameraPosX, (m_mousePosition.y()/SCREEN::CELL_SIZE.height()) + fCameraPosY)));
-    }
-    if(m_keys[KEYBOARD::KEY_3]->m_released)
-    {
-        Worm* worm = new Worm((m_mousePosition.x()/SCREEN::CELL_SIZE.width()) + fCameraPosX, (m_mousePosition.y()/SCREEN::CELL_SIZE.height()) + fCameraPosY);
-        pObjectUnderControl = worm;
-        pCameraTrackingObject = worm;
-        listObjects.push_back(std::unique_ptr<Worm>(worm));
-    }
-
-    if(m_keys[KEYBOARD::KEY_9]->m_released)
-    {
-        CreateMap();
+        bZoomOut = !bZoomOut;
     }
 }
 

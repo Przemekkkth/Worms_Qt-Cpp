@@ -48,7 +48,7 @@ int Missile::BounceDeathAction()
     return 20; // Explode Big
 }
 
-bool Missile::Damege(float d)
+bool Missile::Damage(float d)
 {
     return true;
 }

@@ -32,18 +32,30 @@ class GameScene : public QGraphicsScene
 public:
     explicit GameScene(QObject *parent = nullptr);
     void setMousePosition(QPoint newPos);
+
+
 signals:
 
 private slots:
     void loop();
 
 private:
-    void CreateMap();
-    void PerlinNoise1D(int nCount, float *fSeed, int nOctaves, float fBias, float *fOutput);
-    void drawLandscape();
+    void createMap();
+    void perlinNoise1D(int nCount, float *fSeed, int nOctaves, float fBias, float *fOutput);
+    void drawLandscapeAndObjects();
     QPoint mousePosition() const;
     void boom(float fWorldX, float fWorldY, float fRadius);
     void updatePhysics();
+    void mouseEdgeMapScroll();
+    void controlSupervisor();
+    void handleAIStateMachine();
+    void handleObjectUnderControl();
+    void clampMapBoundaries();
+    void decreaseTurnTime();
+    void checkGameStateStability();
+    void drawTeamHealthBars();
+    void drawCounter();
+    void updateStateMachine();
     //Terrain size
     int nMapWidth  = 1024;
     int nMapHeight = 512;
@@ -122,9 +134,6 @@ private:
     QElapsedTimer m_elapsedTimer;
     float m_deltaTime = 0.0f, m_loopTime = 0.0f;
     const float m_loopSpeed = int(1000.0f/FPS);
-    // QGraphicsScene interface
-    void setCamera();
-    
 protected:
     virtual void keyPressEvent(QKeyEvent *event) override;
     virtual void keyReleaseEvent(QKeyEvent *event) override;

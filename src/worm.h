@@ -9,7 +9,7 @@ public:
     Worm(float x, float y);
     virtual void Draw(GameScene *scene, float fOffsetX, float fOffsetY, bool bPixel = false) override;
     virtual int BounceDeathAction() override;
-    virtual bool Damege(float d) override;
+    virtual bool Damage(float d) override;
 
     float fShootAngle = 0.0f;
     float fHealth = 1.0f;

@@ -56,7 +56,7 @@ int Debris::BounceDeathAction()
     return 0;
 }
 
-bool Debris::Damege(float d)
+bool Debris::Damage(float d)
 {
     return true;
 }

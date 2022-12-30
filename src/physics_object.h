@@ -33,7 +33,7 @@ public:
 
     virtual void Draw(GameScene* scene, float fOffsetX, float fOffsetY, bool bPixel = false) = 0;
     virtual int BounceDeathAction() = 0;
-    virtual bool Damege(float d) = 0;
+    virtual bool Damage(float d) = 0;
 };
 
 #endif // PHYSICS_OBJECT_H
